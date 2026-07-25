@@ -1,0 +1,104 @@
+بِسْمِ اللهِ الرَّحْمنِ الرَّحِيمِ
+آللَّهُمَّ صَلِّ  وَ سَلِّم عَلَى سَيِّدِنَا مُحَمَّدٍ وَ عَلَى آلِ سَيِّدِنَا مُحَمَّد
+
+# ai-commander
+
+**Kanban-based task orchestrator untuk AI coding agent (Claude Code & OpenCode), dengan dukungan multi-repository, mode bypass-permission, dan kontrol biaya token yang efisien.**
+
+> Status: 🚧 Dalam pengembangan (Tahap 1: Kanban + multi-repo)
+
+---
+
+## Kenapa ai-commander?
+
+Setelah mencoba beberapa tools kanban/orchestrator AI yang ada, ditemukan dua masalah umum:
+
+1. **Network/usage yang membengkak tidak wajar** saat tool pihak ketiga menjalankan Claude Code di background (indikasi overhead yang tidak perlu / polling berlebihan).
+2. **Konsumsi quota yang jauh lebih boros** dibanding menjalankan task yang sama secara manual dalam satu sesi CLI utuh (misalnya 1 task manual = 1-3% quota, tapi lewat app orchestrator multi-agent bisa sampai 10%).
+
+`ai-commander` dibangun dengan filosofi:
+
+- **1 task = 1 session CLI** (tidak ada overhead multi-agent/multi-commander yang tidak perlu).
+- **Instruksi antar-tahap kanban disuntikkan langsung ke prompt agent**, bukan lewat polling terus-menerus.
+- **Native code sepenuhnya** (minim dependency pihak ketiga) agar perilaku tool sepenuhnya bisa diaudit dan dikontrol.
+- **Bypass permission** untuk operasi CLI (tanpa konfirmasi manual berulang), karena agent sudah diberi instruksi & wewenang yang jelas per tahap kanban.
+
+---
+
+## Fitur Utama
+
+- 📋 **Kanban board** dengan kanban group yang bisa dikustomisasi (default: `TO-DO`, `ON PROGRESS`, `NEED REVIEW`, `COMMIT`, `DONE`)
+- 📃 Toggle tampilan **Kanban / List**
+- 🗂️ **Multi-repository** via **Project Group** (mapping alias project ke path folder)
+- ⚙️ **Kanban Group Settings**: atur alur "next step move to" + instruksi default per tahap (mis. instruksi commit di tahap `COMMIT`, instruksi baca `/context` sebelum `/exit` di tahap `DONE`)
+- 🖥️ **Task Progress View**: live terminal view dari session AI yang sedang berjalan
+- 🧭 **Orchestrator Terminal**: satu terminal penuh untuk membuat task/list task secara otomatis
+- 📊 **Dashboard realtime**: total token usage (dalam K) & total task selesai per Project Group
+- 🗑️ **Soft-delete task**: task yang dihapus disimpan (bukan dihapus permanen), bisa dikembalikan ke `TO-DO`
+- 🤖 Dukungan provider: **Claude Code** & **OpenCode** (via CLI, bypass permission)
+- 🔁 Agent AI dapat **memindahkan task antar kanban group secara otomatis** lewat perintah CLI internal (`ai-commander-cli update ...`) begitu task mencapai state tertentu — tanpa perlu campur tangan manual
+
+---
+
+## Instalasi (belum ready digunakan)
+
+```bash
+npx ai-commander
+```
+
+Atau instalasi global:
+
+```bash
+npm install -g ai-commander
+ai-commander
+```
+
+Setelah dijalankan, ai-commander akan:
+1. Membuat/menginisialisasi database SQLite lokal (default: `~/.ai-commander/data.db`)
+2. Menjalankan local web server (default port bisa dikonfigurasi)
+3. Membuka dashboard di browser
+
+---
+
+## Persyaratan
+
+- Node.js >= 18
+- CLI `claude` (Claude Code) dan/atau `opencode` sudah terinstal & ter-autentikasi di mesin yang sama
+- SQLite (menggunakan native binding, lihat `ARCHITECTURE.md`)
+
+---
+
+## Alur Kerja Singkat
+
+1. Buat **Project Group** (opsional, jika multi-repo diaktifkan di Setting) → mapping alias ke path folder repo.
+2. Buat kanban group & aturan alur (`next step move to`, instruksi per tahap) di halaman **Setting**.
+3. Buat task baru di kolom `TO-DO` (isi detail task + pilih AI Provider).
+4. Klik start → ai-commander membuka 1 session CLI (Claude Code/OpenCode) dengan bypass permission, mengirim:
+   - UUID Project Group
+   - UUID Task (pendek)
+   - Daftar kanban group + urutan "next step move to" + instruksi tiap tahap
+5. Task otomatis dipindah ke tahap berikutnya (default: `ON PROGRESS`).
+6. Agent bekerja, dan ketika merasa sudah mencapai suatu checkpoint tahap, agent sendiri yang memanggil:
+   ```bash
+   ai-commander-cli update <project_group_uuid> <task_uuid> <target_kanban_group_uuid>
+   ```
+7. UI kanban ter-update secara realtime, dashboard token usage ikut ter-update.
+8. Task terus berjalan otomatis melewati tahap-tahap kanban (`NEED REVIEW` → `COMMIT` → `DONE`) sesuai instruksi masing-masing tahap, kecuali ada tahap yang sengaja ditandai untuk dijalankan manual.
+
+---
+
+## Dokumentasi Lengkap
+
+- Arsitektur teknis: lihat [`ARCHITECTURE.md`](./ARCHITECTURE.md)
+- Lisensi: lihat [`LICENSE.md`](./LICENSE.md)
+
+---
+
+## Lisensi
+
+Project ini menggunakan **lisensi kustom (ACCL v1.0)**:
+
+- ✅ Gratis digunakan untuk mengerjakan proyek apa pun (pribadi, riset, edukasi, maupun komersial).
+- ❌ Dilarang memodifikasi/menjual ulang Software ini sebagai aplikasi berbayar atau layanan SaaS berbayar (asli maupun turunannya), **kecuali** oleh pencipta awal — dan itu pun hanya untuk fitur tambahan opsional (cloud sync, managed inference, dsb.), dengan versi dasar tetap gratis untuk semua orang.
+
+Baca selengkapnya di [`LICENSE.md`](./LICENSE.md).
