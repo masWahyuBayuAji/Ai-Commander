@@ -4,6 +4,7 @@ const path = require('node:path');
 const os = require('node:os');
 const { validateAndTransition } = require('../core/kanban-state-machine');
 const taskRepo = require('../db/repositories/task.repo');
+const kanbanGroupRepo = require('../db/repositories/kanbanGroup.repo');
 const wsServer = require('./ws-server');
 
 const IPC_DIR = path.join(os.homedir(), '.ai-commander');
@@ -73,6 +74,8 @@ function startIpcServer(port) {
 function handleMessage(socket, msg) {
   if (msg.type === 'transition') {
     handleTransition(socket, msg);
+  } else if (msg.type === 'create') {
+    handleCreate(socket, msg);
   } else {
     socket.write(JSON.stringify({ error: `Unknown message type: ${msg.type}` }) + '\n');
   }
@@ -95,6 +98,38 @@ function handleTransition(socket, msg) {
   });
 
   socket.write(JSON.stringify({ ok: true }) + '\n');
+}
+
+function handleCreate(socket, msg) {
+  const { projectGroupId, detail, aiProvider } = msg;
+
+  if (!detail) {
+    socket.write(JSON.stringify({ error: 'detail is required' }) + '\n');
+    socket.end();
+    return;
+  }
+
+  // Find TO-DO kanban group
+  const kanbanGroups = kanbanGroupRepo.listByProjectGroup(projectGroupId);
+  const todoGroup = kanbanGroups.find(g => g.is_locked_todo === 1);
+  if (!todoGroup) {
+    socket.write(JSON.stringify({ error: 'TO-DO kanban group not found for project: ' + projectGroupId }) + '\n');
+    socket.end();
+    return;
+  }
+
+  const task = taskRepo.create({
+    projectGroupId: projectGroupId || null,
+    kanbanGroupId: todoGroup.id,
+    title: detail.slice(0, 50),
+    detail,
+    aiProvider: aiProvider || 'opencode',
+  });
+
+  wsServer.broadcast('board', { type: 'task_created', data: task });
+
+  socket.write(JSON.stringify({ ok: true, task }) + '\n');
+  socket.end();
 }
 
 function getSocketPath() {

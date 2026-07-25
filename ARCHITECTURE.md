@@ -96,6 +96,7 @@ ai-commander/
 │   │   │   ├── claude-code.adapter.js
 │   │   │   └── opencode.adapter.js
 │   │   ├── prompt-builder.js         # bangun prompt instruksi awal task
+│   │   ├── orchestrator-prompt-builder.js # bangun prompt instruksi awal orchestrator
 │   │   ├── token-usage-parser.js     # parse token usage dari output CLI
 │   │   └── orchestrator-runner.js    # pty khusus utk halaman Orchestrator
 │   └── shared/
@@ -250,7 +251,8 @@ bersama path unix socket, dibaca oleh `ai-commander-cli`).
 | POST   | `/api/orchestrator/input`                        | Kirim input ke pty orchestrator                                        |
 | POST   | `/api/orchestrator/resize`                       | Resize terminal orchestrator                                           |
 | GET    | `/api/orchestrator/status`                       | Cek status orchestrator (running/provider)                              |
-| POST   | `/api/orchestrator/create-tasks`                 | Endpoint yang dipanggil orchestrator utk buat task otomatis             |
+| POST   | `/api/orchestrator/create-tasks`                 | Buat task baru dari orchestrator (bulk create)                                       |
+| GET    | `/api/orchestrator/context`                       | Ambil context project groups & kanban groups untuk orchestrator                       |
 
 ---
 
@@ -282,8 +284,9 @@ bersama path unix socket, dibaca oleh `ai-commander-cli`).
    di-broadcast via WebSocket ke `Task Progress View` yang sedang membuka
    task tsb.
 
-### 6.2 Saat agent memanggil `ai-commander-cli update ...`
+### 6.2 Saat agent memanggil `ai-commander-cli update ...` atau `ai-commander-cli create ...`
 
+**Update (pindah kanban group):**
 ```
 ai-commander-cli update <project_group_uuid|-> <task_uuid> <target_kanban_group_uuid>
 ```
@@ -306,6 +309,19 @@ ai-commander-cli update <project_group_uuid|-> <task_uuid> <target_kanban_group_
 - Proses ini berulang otomatis hingga task mencapai kolom `DONE`, kecuali
   ada tahap yang secara eksplisit ditandai *manual* di instruksinya.
 
+**Create (buat task baru):**
+```
+ai-commander-cli create <project_group_uuid|-> <detail> [ai_provider]
+```
+
+- `ai-commander-cli` mengirim payload `{ type: "create", projectGroupId,
+  detail, aiProvider }` ke server lewat unix socket.
+- Server menerima via `ipc-socket.js`, menemukan kolom `TO-DO` untuk
+  project group tsb, lalu membuat task baru via `taskRepo.create()`.
+- Broadcast update ke semua client WS (realtime).
+- Command ini dipanggil oleh AI agent di Orchestrator ketika user meminta
+  membuat task baru.
+
 ### 6.3 Kenapa ini hemat token/quota
 
 - Tidak ada proses "commander" tambahan yang mem-*poll* status atau
@@ -316,6 +332,26 @@ ai-commander-cli update <project_group_uuid|-> <task_uuid> <target_kanban_group_
 - 1 task tetap 1 pty/1 session CLI dari `ON PROGRESS` sampai `DONE`;
   transisi antar kolom hanya mengganti status di DB + mengirim pesan
   lanjutan ke pty yang sama.
+
+### 6.4 Saat user membuat task dari Orchestrator
+
+```
+ai-commander-cli create <project_group_uuid|-> <detail> [ai_provider]
+```
+
+1. User membuka halaman Orchestrator, memilih provider (OpenCode/Claude Code).
+2. Server spawn PTY dalam mode interaktif, lalu mengirim **initial prompt**
+   (`orchestrator-prompt-builder.js`) yang berisi instruksi cara membuat task
+   beserta daftar project groups & kanban groups.
+3. User mengetik permintaan dalam bahasa alami (mis. "buat task baru dengan
+   deskripsi 'abc'").
+4. AI agent di orchestrator mengenali permintaan tersebut dan menjalankan
+   `ai-commander-cli create <project_uuid> "abc" opencode` di terminal.
+5. `ai-commander-cli` mengirim payload `{ type: "create", projectGroupId,
+   detail, aiProvider }` ke server lewat unix socket.
+6. Server (`ipc-socket.js`) membuat task baru di kolom `TO-DO`, lalu
+   broadcast update ke UI kanban via WebSocket.
+7. Task baru muncul di kolom `TO-DO` secara realtime tanpa refresh.
 
 ---
 
@@ -332,9 +368,19 @@ ai-commander-cli update <project_group_uuid|-> <task_uuid> <target_kanban_group_
   pengecualian dependency, didiskusikan dulu sebelum ditambahkan).
 - **Orchestrator** memakai mekanisme pty yang sama, tapi tidak terikat ke 1
   task — ini adalah sesi bebas untuk membuat/menyusun banyak task/list task
-  otomatis, yang pada akhirnya memanggil `POST /api/orchestrator/create-tasks`
-  (atau langsung insert lewat `ai-commander-cli create ...`, ditambahkan di
-  fase pengembangan CLI).
+  otomatis. Saat orchestrator di-start, server mengirim **initial prompt**
+  (`orchestrator-prompt-builder.js`) yang berisi:
+  - Instruksi cara membuat task: `ai-commander-cli create <project_uuid|-> "detail" [provider]`
+  - Instruksi cara memindahkan task: `ai-commander-cli update ...`
+  - Daftar project groups & kanban groups yang tersedia di database
+  - Aturan agar AI agent langsung menjalankan perintah create di terminal
+    ketika user meminta membuat task.
+  
+  AI agent (OpenCode/Claude Code) di orchestrator menerima prompt ini dan
+  mengetahui cara membuat task secara langsung lewat CLI, tanpa perlu
+  user mengetahui syntax command-nya. Selain itu, endpoint
+  `POST /api/orchestrator/create-tasks` juga tersedia untuk pembuatan
+  task via HTTP (bulk create).
 - **Setiap kali user membuka Orchestrator**, frontend selalu memanggil
   `POST /api/orchestrator/stop` terlebih dahulu untuk membunuh process lama
   (jika ada), lalu `POST /api/orchestrator/start` untuk spawn session baru.

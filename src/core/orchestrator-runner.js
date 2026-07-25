@@ -1,6 +1,7 @@
 const pty = require('node-pty');
 const { getAdapter } = require('./provider-adapters');
 const wsServer = require('../server/ws-server');
+const { buildOrchestratorPrompt } = require('./orchestrator-prompt-builder');
 
 let orchestratorProcess = null;
 let currentProvider = null;
@@ -15,9 +16,12 @@ function start(providerName, cwd) {
     return { ok: false, error: 'Unknown provider: ' + providerName };
   }
 
+  const systemPrompt = buildOrchestratorPrompt();
+
   const { command, args } = adapter.buildSpawnCommand({
     cwd: cwd || process.cwd(),
     interactive: true,
+    systemPrompt,
   });
 
   try {
@@ -59,6 +63,7 @@ function start(providerName, cwd) {
     });
 
     currentProvider = providerName;
+
     return { ok: true };
   } catch (e) {
     console.error('Orchestrator start error:', e);

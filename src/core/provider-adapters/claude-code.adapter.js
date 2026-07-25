@@ -6,6 +6,7 @@
  *
  * Verified CLI flags (claude v2.1.216):
  * - Interactive: `claude --permission-mode bypassPermissions`
+ * - Interactive with system prompt: `claude --permission-mode bypassPermissions --system-prompt "..."`
  * - Non-interactive: `claude --permission-mode bypassPermissions --print`
  */
 
@@ -14,16 +15,17 @@
  * @param {Object} options
  * @param {string} options.cwd - Working directory for the CLI
  * @param {string} options.initialPrompt - Initial prompt to send to the CLI
+ * @param {string} options.systemPrompt - System prompt for persistent instructions (orchestrator mode)
  * @param {boolean} options.interactive - If true, spawn interactive mode (for orchestrator)
  * @returns {{ command: string, args: string[] }} Command and arguments for node-pty
  */
-function buildSpawnCommand({ cwd, initialPrompt, interactive }) {
+function buildSpawnCommand({ cwd, initialPrompt, systemPrompt, interactive }) {
   if (interactive) {
-    // Orchestrator mode: interactive terminal with bypass permissions
-    return {
-      command: 'claude',
-      args: ['--permission-mode', 'bypassPermissions'],
-    };
+    const args = ['--permission-mode', 'bypassPermissions'];
+    if (systemPrompt) {
+      args.push('--system-prompt', systemPrompt);
+    }
+    return { command: 'claude', args };
   }
 
   // Task runner mode: non-interactive with print flag

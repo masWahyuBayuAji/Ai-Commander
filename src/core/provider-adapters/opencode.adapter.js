@@ -6,6 +6,7 @@
  *
  * Verified CLI flags (opencode v1.18.5):
  * - Interactive: `opencode` (no flags)
+ * - Interactive with system prompt: `opencode --system "Focus on security"`
  * - Non-interactive: `opencode run --auto "prompt"`
  */
 
@@ -14,13 +15,17 @@
  * @param {Object} options
  * @param {string} options.cwd - Working directory for the CLI
  * @param {string} options.initialPrompt - Initial prompt to send to the CLI
+ * @param {string} options.systemPrompt - System prompt for persistent instructions (orchestrator mode)
  * @param {boolean} options.interactive - If true, spawn interactive mode (for orchestrator)
  * @returns {{ command: string, args: string[] }} Command and arguments for node-pty
  */
-function buildSpawnCommand({ cwd, initialPrompt, interactive }) {
+function buildSpawnCommand({ cwd, initialPrompt, systemPrompt, interactive }) {
   if (interactive) {
-    // Orchestrator mode: interactive terminal, no special flags
-    return { command: 'opencode', args: [] };
+    const args = [];
+    if (systemPrompt) {
+      args.push('--system', systemPrompt);
+    }
+    return { command: 'opencode', args };
   }
 
   // Task runner mode: non-interactive with run subcommand

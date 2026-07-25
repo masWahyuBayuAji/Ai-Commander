@@ -32,11 +32,12 @@ Setelah mencoba beberapa tools kanban/orchestrator AI yang ada, ditemukan dua ma
 - 🗂️ **Multi-repository** via **Project Group** (mapping alias project ke path folder)
 - ⚙️ **Kanban Group Settings**: atur alur "next step move to" + instruksi default per tahap (mis. instruksi commit di tahap `COMMIT`, instruksi baca `/context` sebelum `/exit` di tahap `DONE`)
 - 🖥️ **Task Progress View**: live terminal view dari session AI yang sedang berjalan
-- 🧭 **Orchestrator Terminal**: satu terminal penuh untuk membuat task/list task secara otomatis (selalu session baru setiap dibuka)
+- 🧭 **Orchestrator Terminal**: satu terminal penuh untuk membuat task/list task secara otomatis (selalu session baru setiap dibuka). AI agent di orchestrator otomatis diberi instruksi cara membuat task lewat `ai-commander-cli create ...`
 - 📊 **Dashboard realtime**: total token usage (dalam K) & total task selesai per Project Group
 - 🗑️ **Soft-delete task**: task yang dihapus disimpan (bukan dihapus permanen), bisa dikembalikan ke `TO-DO`
 - 🤖 Dukungan provider: **Claude Code** & **OpenCode** (via CLI, bypass permission)
 - 🔁 Agent AI dapat **memindahkan task antar kanban group secara otomatis** lewat perintah CLI internal (`ai-commander-cli update ...`) begitu task mencapai state tertentu — tanpa perlu campur tangan manual
+- 🛠️ **CLI `ai-commander-cli`**: command `update` (pindah kanban group) & `create` (buat task baru) bisa dipanggil langsung oleh AI agent dari dalam terminal
 - 🔄 **Auto-recovery**: server otomatis memulihkan task yang terputus saat server di-restart (status diubah ke `interrupted`, user perlu memulai ulang secara manual)
 
 ---
@@ -93,6 +94,19 @@ NO_BROWSER=1 npx ai-commander
    ```
 7. UI kanban ter-update secara realtime, dashboard token usage ikut ter-update.
 8. Task terus berjalan otomatis melewati tahap-tahap kanban (`NEED REVIEW` → `COMMIT` → `DONE`) sesuai instruksi masing-masing tahap, kecuali ada tahap yang sengaja ditandai untuk dijalankan manual.
+
+### Membuat task dari Orchestrator
+
+Ketika user membuka Orchestrator, AI agent di dalamnya sudah diberi instruksi awal tentang cara membuat task. User cukup ketik dalam bahasa alami:
+
+> "Buat task baru dengan deskripsi 'Buat halaman login'"
+
+AI agent akan menjalankan:
+```bash
+ai-commander-cli create <project_group_uuid> "Buat halaman login" opencode
+```
+
+Task baru langsung muncul di kolom `TO-DO` secara realtime.
 
 ---
 

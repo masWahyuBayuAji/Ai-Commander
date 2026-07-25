@@ -1,5 +1,10 @@
 const { router } = require('../router');
 const orchestratorRunner = require('../../core/orchestrator-runner');
+const taskRepo = require('../../db/repositories/task.repo');
+const kanbanGroupRepo = require('../../db/repositories/kanbanGroup.repo');
+const projectGroupRepo = require('../../db/repositories/projectGroup.repo');
+const settingsRepo = require('../../db/repositories/settings.repo');
+const wsServer = require('../ws-server');
 
 // POST /api/orchestrator/start - Start orchestrator PTY
 router.post('/api/orchestrator/start', (req, res, { body }) => {
@@ -49,6 +54,95 @@ router.post('/api/orchestrator/resize', (req, res, { body }) => {
   const result = orchestratorRunner.resize(body.cols, body.rows);
   res.writeHead(result.ok ? 200 : 400, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify(result));
+});
+
+// POST /api/orchestrator/create-tasks - Buat task baru dari orchestrator
+router.post('/api/orchestrator/create-tasks', (req, res, { body }) => {
+  if (!body || !body.tasks || !Array.isArray(body.tasks) || body.tasks.length === 0) {
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'tasks array is required' }));
+    return;
+  }
+
+  const created = [];
+  const errors = [];
+
+  for (let i = 0; i < body.tasks.length; i++) {
+    const t = body.tasks[i];
+    if (!t.detail) {
+      errors.push({ index: i, error: 'detail is required' });
+      continue;
+    }
+
+    const projectGroupId = t.projectGroupId || null;
+    const aiProvider = t.aiProvider || 'opencode';
+
+    // Find TO-DO kanban group
+    const kanbanGroups = kanbanGroupRepo.listByProjectGroup(projectGroupId);
+    const todoGroup = kanbanGroups.find(g => g.is_locked_todo === 1);
+    if (!todoGroup) {
+      errors.push({ index: i, error: 'TO-DO kanban group not found for project: ' + projectGroupId });
+      continue;
+    }
+
+    const task = taskRepo.create({
+      projectGroupId,
+      kanbanGroupId: todoGroup.id,
+      title: t.title || t.detail.slice(0, 50),
+      detail: t.detail,
+      aiProvider,
+    });
+
+    wsServer.broadcast('board', { type: 'task_created', data: task });
+    created.push(task);
+  }
+
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ ok: true, created, errors }));
+});
+
+// GET /api/orchestrator/context - Ambil context untuk orchestrator prompt
+router.get('/api/orchestrator/context', (req, res) => {
+  const settings = settingsRepo.getAllSettings();
+  const useGrouping = settings.use_grouping_project === true || settings.use_grouping_project === 'true';
+  const projectGroups = projectGroupRepo.list();
+
+  const groups = projectGroups.map(pg => {
+    const kanbanGroups = kanbanGroupRepo.listByProjectGroup(pg.id);
+    return {
+      id: pg.id,
+      name: pg.name,
+      repoPath: pg.repo_path,
+      kanbanGroups: kanbanGroups.map(kg => ({
+        id: kg.id,
+        name: kg.name,
+        slashCommand: kg.slash_command,
+        nextStepGroupId: kg.next_step_group_id,
+        instruction: kg.instruction,
+        isLockedTodo: kg.is_locked_todo === 1,
+        isLockedDone: kg.is_locked_done === 1,
+      })),
+    };
+  });
+
+  // Also include global kanban groups (when useGrouping = false)
+  const globalKanbanGroups = kanbanGroupRepo.listByProjectGroup(null);
+
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({
+    ok: true,
+    useGroupingProject: useGrouping,
+    projectGroups: groups,
+    globalKanbanGroups: globalKanbanGroups.map(kg => ({
+      id: kg.id,
+      name: kg.name,
+      slashCommand: kg.slash_command,
+      nextStepGroupId: kg.next_step_group_id,
+      instruction: kg.instruction,
+      isLockedTodo: kg.is_locked_todo === 1,
+      isLockedDone: kg.is_locked_done === 1,
+    })),
+  }));
 });
 
 module.exports = router;
