@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Commander - Orchestrator</title>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <header class="header">
+    <div class="header-left">
+      <span style="font-weight:600;">AI Commander - Orchestrator</span>
+    </div>
+    <div class="header-right">
+      <button class="btn btn-ghost" onclick="window.close()">Close</button>
+    </div>
+  </header>
+
+  <main class="main-content" style="padding:0;">
+    <div class="orchestrator-container">
+      <pre class="orchestrator-output" id="orchestratorOutput"></pre>
+      <div class="orchestrator-input">
+        <input type="text" id="orchestratorInput" placeholder="Type a command..." autocomplete="off">
+        <button class="btn btn-primary" onclick="Orchestrator.send()">Send</button>
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/ws-client.js"></script>
+  <script src="/js/orchestrator.js"></script>
+</body>
+</html>

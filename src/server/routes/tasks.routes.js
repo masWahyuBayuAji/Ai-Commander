@@ -3,6 +3,7 @@ const taskRepo = require('../../db/repositories/task.repo');
 const kanbanGroupRepo = require('../../db/repositories/kanbanGroup.repo');
 const wsServer = require('../ws-server');
 const { validateAndTransition } = require('../../core/kanban-state-machine');
+const taskRunner = require('../../core/task-runner');
 
 // GET /api/tasks - List tasks
 router.get('/api/tasks', (req, res, { query }) => {
@@ -123,6 +124,87 @@ router.post('/api/tasks/:id/transition', (req, res, { params, body }) => {
 
   res.writeHead(200, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({ ok: true, data: result.task }));
+});
+
+// POST /api/tasks/:id/start - Start task execution
+// Based on ARCHITECTURE.md §6.1:
+// 1. Move task from TO-DO to next_step_group_id of TO-DO (default: ON PROGRESS)
+// 2. Broadcast board event
+// 3. Call taskRunner.startTask(taskId) asynchronously
+// 4. Return response immediately without waiting for task to finish
+router.post('/api/tasks/:id/start', async (req, res, { params }) => {
+  const task = taskRepo.getById(params.id);
+  if (!task) {
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Task not found' }));
+    return;
+  }
+
+  // Check if task is already running
+  if (task.session_status === 'running') {
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Task is already running' }));
+    return;
+  }
+
+  // Find TO-DO kanban group for this task's project
+  const kanbanGroups = kanbanGroupRepo.listByProjectGroup(task.project_group_id);
+  const todoGroup = kanbanGroups.find(g => g.is_locked_todo === 1);
+  
+  if (!todoGroup) {
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'TO-DO kanban group not found' }));
+    return;
+  }
+
+  // Check if task is currently in TO-DO
+  if (task.kanban_group_id !== todoGroup.id) {
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Task must be in TO-DO to start' }));
+    return;
+  }
+
+  // Get next step from TO-DO group (default: ON PROGRESS)
+  const nextStepGroupId = todoGroup.next_step_group_id;
+  if (!nextStepGroupId) {
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'TO-DO group has no next step defined' }));
+    return;
+  }
+
+  // Transition task from TO-DO to next step (ON PROGRESS)
+  const transitionResult = validateAndTransition(params.id, nextStepGroupId);
+  if (!transitionResult.ok) {
+    res.writeHead(transitionResult.status || 400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: transitionResult.error }));
+    return;
+  }
+
+  // Broadcast board update
+  wsServer.broadcast('board', { type: 'task_updated', data: transitionResult.task });
+
+  // Start task asynchronously (don't wait for completion)
+  taskRunner.startTask(params.id).catch(err => {
+    console.error(`[TaskRunner] Error starting task ${params.id}:`, err);
+  });
+
+  // Return immediately with status 'starting'
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ ok: true, status: 'starting' }));
+});
+
+// GET /api/tasks/:id/events - Get task log events for progress view
+router.get('/api/tasks/:id/events', (req, res, { params }) => {
+  const task = taskRepo.getById(params.id);
+  if (!task) {
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Task not found' }));
+    return;
+  }
+
+  const events = taskRepo.getEventsByTaskId(params.id);
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ data: events }));
 });
 
 module.exports = router;

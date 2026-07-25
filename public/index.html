@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Commander</title>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <header class="header">
+    <div class="header-left">
+      <button class="view-toggle active" data-view="kanban" title="Kanban View">
+        <span class="icon">&#9638;</span> KANBAN
+      </button>
+      <button class="view-toggle" data-view="list" title="List View">
+        <span class="icon">&#9776;</span> LIST
+      </button>
+    </div>
+    <div class="header-right">
+      <button class="btn-settings" id="btnSettings">Setting</button>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <label for="projectGroupSelect">Project Group:</label>
+      <select id="projectGroupSelect">
+        <option value="default">default</option>
+      </select>
+    </div>
+    <div class="toolbar-right">
+      <button class="btn btn-ghost" id="btnNewGroup" onclick="KanbanBoard.openNewGroupModal()">+ Group</button>
+      <button class="btn-orchestrator" id="btnOrchestrator">Open Orchestrator</button>
+    </div>
+  </div>
+
+  <main class="main-content">
+    <div id="dashboardSection"></div>
+    <div id="kanbanView" class="view-container active"></div>
+    <div id="listView" class="view-container"></div>
+    <div id="settingsView" class="view-container"></div>
+  </main>
+
+  <div id="modalOverlay" class="modal-overlay hidden">
+    <div class="modal" id="modalContent"></div>
+  </div>
+
+  <script src="/js/ws-client.js"></script>
+  <script src="/js/modal.js"></script>
+  <script src="/js/settings.js"></script>
+  <script src="/js/kanban.js"></script>
+  <script src="/js/list-view.js"></script>
+  <script src="/js/task-progress.js"></script>
+  <script src="/js/deleted-task.js"></script>
+  <script src="/js/dashboard.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>

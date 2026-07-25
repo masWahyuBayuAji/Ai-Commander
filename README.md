@@ -37,12 +37,14 @@ Setelah mencoba beberapa tools kanban/orchestrator AI yang ada, ditemukan dua ma
 - 🗑️ **Soft-delete task**: task yang dihapus disimpan (bukan dihapus permanen), bisa dikembalikan ke `TO-DO`
 - 🤖 Dukungan provider: **Claude Code** & **OpenCode** (via CLI, bypass permission)
 - 🔁 Agent AI dapat **memindahkan task antar kanban group secara otomatis** lewat perintah CLI internal (`ai-commander-cli update ...`) begitu task mencapai state tertentu — tanpa perlu campur tangan manual
+- 🔄 **Auto-recovery**: server otomatis memulihkan task yang terputus saat server di-restart (status diubah ke `interrupted`, user perlu memulai ulang secara manual)
 
 ---
 
-## Instalasi (belum ready digunakan)
+## Instalasi & Menjalankan
 
 ```bash
+# Jalankan langsung via npx (tanpa install global)
 npx ai-commander
 ```
 
@@ -54,9 +56,16 @@ ai-commander
 ```
 
 Setelah dijalankan, ai-commander akan:
-1. Membuat/menginisialisasi database SQLite lokal (default: `~/.ai-commander/data.db`)
-2. Menjalankan local web server (default port bisa dikonfigurasi)
-3. Membuka dashboard di browser
+1. Menginisialisasi database SQLite lokal (`~/.ai-commander/data.db`)
+2. Menjalankan recovery task orphaned jika ada sesi sebelumnya yang terputus
+3. Menjalankan local web server (default: `http://localhost:4321`)
+4. Menjalankan unix socket IPC (`~/.ai-commander/ipc.sock`)
+5. Membuka dashboard di browser secara otomatis
+
+Untuk menjalankan tanpa auto-open browser:
+```bash
+NO_BROWSER=1 npx ai-commander
+```
 
 ---
 
@@ -90,7 +99,17 @@ Setelah dijalankan, ai-commander akan:
 ## Dokumentasi Lengkap
 
 - Arsitektur teknis: lihat [`ARCHITECTURE.md`](./ARCHITECTURE.md)
+- Checklist rilis: lihat [`CHECKLIST.md`](./CHECKLIST.md)
 - Lisensi: lihat [`LICENSE.md`](./LICENSE.md)
+
+---
+
+## Keterbatasan Tahap 1
+
+- **PTY in-memory**: proses PTY yang sedang berjalan hanya tersimpan di memori server. Jika server di-restart, task yang sedang `running` akan ditandai `interrupted` dan perlu dimulai ulang secara manual.
+- **Single workspace**: jika `Use Grouping Project = no`, cwd default pty adalah folder tempat `ai-commander` dijalankan. Belum ada input path manual per task.
+- **No HTTPS**: server hanya mendukung HTTP (localhost only, bukan untuk deployment publik).
+- **Open Questions**: beberapa detail perlu dikonfirmasi — lihat bagian Open Questions di `TASKS.md`.
 
 ---
 

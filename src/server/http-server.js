@@ -10,6 +10,8 @@ require('./routes/project-groups.routes');
 require('./routes/kanban-groups.routes');
 require('./routes/tasks.routes');
 require('./routes/deleted-tasks.routes');
+require('./routes/orchestrator.routes');
+require('./routes/dashboard.routes');
 
 const PUBLIC_DIR = path.join(__dirname, '..', '..', 'public');
 
