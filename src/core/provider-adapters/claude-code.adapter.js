@@ -1,13 +1,12 @@
 /**
  * Claude Code provider adapter
- * 
- * Builds spawn command for running Claude Code CLI in non-interactive mode.
- * 
- * IMPORTANT: The --permission-mode bypassPermissions flag is based on
- * ARCHITECTURE.md documentation. This should be verified against the actual
- * Claude Code CLI documentation as flags may change between versions.
- * 
- * TODO: Verify official CLI flags for Claude Code bypass-permission mode
+ *
+ * Builds spawn command for running Claude Code CLI.
+ * Supports both interactive (orchestrator) and non-interactive (task runner) modes.
+ *
+ * Verified CLI flags (claude v2.1.216):
+ * - Interactive: `claude --permission-mode bypassPermissions`
+ * - Non-interactive: `claude --permission-mode bypassPermissions --print`
  */
 
 /**
@@ -15,21 +14,27 @@
  * @param {Object} options
  * @param {string} options.cwd - Working directory for the CLI
  * @param {string} options.initialPrompt - Initial prompt to send to the CLI
+ * @param {boolean} options.interactive - If true, spawn interactive mode (for orchestrator)
  * @returns {{ command: string, args: string[] }} Command and arguments for node-pty
  */
-function buildSpawnCommand({ cwd, initialPrompt }) {
-  // TODO: verifikasi flag CLI resmi Claude Code
-  // Flag berdasarkan ARCHITECTURE.md: --permission-mode bypassPermissions
+function buildSpawnCommand({ cwd, initialPrompt, interactive }) {
+  if (interactive) {
+    // Orchestrator mode: interactive terminal with bypass permissions
+    return {
+      command: 'claude',
+      args: ['--permission-mode', 'bypassPermissions'],
+    };
+  }
+
+  // Task runner mode: non-interactive with print flag
   const args = [
     '--permission-mode', 'bypassPermissions',
-    '--print',  // Non-interactive mode, print output and exit
-    '--verbose', // Verbose output for better logging
+    '--print',
   ];
-
-  return {
-    command: 'claude',
-    args,
-  };
+  if (initialPrompt) {
+    args.push(initialPrompt);
+  }
+  return { command: 'claude', args };
 }
 
 /**
@@ -38,7 +43,6 @@ function buildSpawnCommand({ cwd, initialPrompt }) {
  * @returns {string} Formatted prompt for Claude Code
  */
 function formatInitialPrompt(prompt) {
-  // Claude Code accepts prompt via stdin after startup
   return prompt;
 }
 

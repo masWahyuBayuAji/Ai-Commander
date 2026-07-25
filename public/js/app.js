@@ -9,8 +9,7 @@
         localStorage.setItem('color_theme', theme);
       })
       .catch(function() {
-        // Fallback to localStorage or default
-        var theme = localStorage.getItem('color_theme') || 'dark-navy';
+        var theme = localStorage.getItem('color-theme') || 'dark-navy';
         document.body.setAttribute('data-theme', theme);
       });
 
@@ -25,7 +24,6 @@
     });
 
     // Dropdown toggle
-    var dropdown = document.getElementById('orchestratorDropdown');
     var toggle = document.getElementById('btnOrchestrator');
     var menu = document.getElementById('orchestratorMenu');
 
@@ -39,14 +37,40 @@
       menu.classList.remove('show');
     });
 
-    // Handle provider selection
+    // Orchestrator panel state
+    var panel = document.getElementById('orchestratorPanel');
+    var closeBtn = document.getElementById('btnCloseOrchestrator');
+    var providerLabel = document.getElementById('orchestratorProviderLabel');
+
+    function showPanel() {
+      panel.classList.add('visible');
+    }
+
+    function hidePanel() {
+      panel.classList.remove('visible');
+    }
+
+    // Handle provider selection - open panel instead of new tab
     document.querySelectorAll('.dropdown-item').forEach(function(item) {
       item.addEventListener('click', function(e) {
         e.stopPropagation();
         var provider = this.getAttribute('data-provider');
         menu.classList.remove('show');
-        window.open('/orchestrator.html?provider=' + encodeURIComponent(provider), '_blank');
+
+        // Update provider label
+        providerLabel.textContent = provider === 'claude-code' ? 'Claude Code' : 'OpenCode';
+
+        // Start orchestrator (only on first click)
+        Orchestrator.start(provider);
+
+        // Show panel
+        showPanel();
       });
+    });
+
+    // Close panel button - just hide, don't kill terminal
+    closeBtn.addEventListener('click', function() {
+      hidePanel();
     });
 
     SettingsPage.updateDropdown();

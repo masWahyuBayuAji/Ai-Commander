@@ -690,18 +690,16 @@ body {
   height: 70vh;
 }
 
-.task-progress-output {
+.task-progress-terminal {
   flex: 1;
-  background: var(--color-terminal-bg);
-  color: var(--color-terminal-text);
-  padding: 12px;
+  background: #0d1117;
   border-radius: var(--radius);
-  font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
-  font-size: 12px;
-  line-height: 1.5;
-  overflow-y: auto;
-  white-space: pre-wrap;
-  word-break: break-all;
+  overflow: hidden;
+}
+
+.task-progress-terminal .xterm {
+  height: 100%;
+  padding: 4px 0;
 }
 
 /* Orchestrator */
@@ -747,6 +745,84 @@ body {
 .orchestrator-input input:focus {
   outline: none;
   border-color: var(--color-primary);
+}
+
+/* Orchestrator Slide-in Panel */
+.orchestrator-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 33vw;
+  min-width: 320px;
+  height: 100vh;
+  background: var(--color-surface);
+  border-left: 1px solid var(--color-border);
+  z-index: 500;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.3s ease;
+  box-shadow: -4px 0 16px rgba(0,0,0,0.3);
+}
+
+.orchestrator-panel.visible {
+  transform: translateX(0);
+}
+
+.orchestrator-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+  flex-shrink: 0;
+}
+
+.orchestrator-panel-title {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.orchestrator-panel-provider {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.orchestrator-panel .orchestrator-output {
+  border-radius: 0;
+  border: none;
+  flex: 1;
+}
+
+.orchestrator-terminal-wrap {
+  flex: 1;
+  overflow: hidden;
+  background: #0d1117;
+  /* min-height: 0; */
+}
+
+.orchestrator-terminal-wrap #orchestratorTerminal {
+  height: 100%;
+}
+
+.orchestrator-terminal-wrap .xterm {
+  height: 100%;
+  padding: 4px 0;
+}
+
+.orchestrator-terminal-wrap .xterm-viewport {
+  scrollbar-width: thin;
+}
+
+.orchestrator-panel .orchestrator-input {
+  border-radius: 0;
+  border: none;
+  border-top: 1px solid var(--color-border);
+  flex-shrink: 0;
 }
 
 /* Dashboard */

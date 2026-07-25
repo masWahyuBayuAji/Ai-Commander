@@ -245,8 +245,12 @@ bersama path unix socket, dibaca oleh `ai-commander-cli`).
 | GET    | `/api/dashboard/summary`                         | Total token usage (K) + total done per group  |
 | WS     | `/ws/tasks/:id`                                  | Stream live terminal output (Task Progress)   |
 | WS     | `/ws/orchestrator`                                | Stream live terminal Orchestrator             |
-| POST   | `/api/orchestrator/start`                        | Buka pty orchestrator                         |
-| POST   | `/api/orchestrator/create-tasks`                 | Endpoint yang dipanggil orchestrator utk buat task otomatis |
+| POST   | `/api/orchestrator/start`                        | Buka pty orchestrator (selalu fresh — stop process lama dulu jika ada) |
+| POST   | `/api/orchestrator/stop`                         | Hentikan pty orchestrator yang sedang jalan                             |
+| POST   | `/api/orchestrator/input`                        | Kirim input ke pty orchestrator                                        |
+| POST   | `/api/orchestrator/resize`                       | Resize terminal orchestrator                                           |
+| GET    | `/api/orchestrator/status`                       | Cek status orchestrator (running/provider)                              |
+| POST   | `/api/orchestrator/create-tasks`                 | Endpoint yang dipanggil orchestrator utk buat task otomatis             |
 
 ---
 
@@ -331,6 +335,11 @@ ai-commander-cli update <project_group_uuid|-> <task_uuid> <target_kanban_group_
   otomatis, yang pada akhirnya memanggil `POST /api/orchestrator/create-tasks`
   (atau langsung insert lewat `ai-commander-cli create ...`, ditambahkan di
   fase pengembangan CLI).
+- **Setiap kali user membuka Orchestrator**, frontend selalu memanggil
+  `POST /api/orchestrator/stop` terlebih dahulu untuk membunuh process lama
+  (jika ada), lalu `POST /api/orchestrator/start` untuk spawn session baru.
+  Ini memastikan orchestrator selalu mulai dalam kondisi bersih — tidak ada
+  residual state dari session sebelumnya (termasuk setelah browser reload).
 
 ---
 

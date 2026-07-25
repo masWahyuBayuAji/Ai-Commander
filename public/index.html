@@ -12,6 +12,7 @@
     })();
   </script>
   <link rel="stylesheet" href="/css/app.css">
+  <link rel="stylesheet" href="/vendor/xterm/css/xterm.css">
 </head>
 <body data-theme="dark-navy">
   <header class="header">
@@ -60,6 +61,9 @@
     <div class="modal" id="modalContent"></div>
   </div>
 
+  <script src="/vendor/xterm/lib/xterm.js"></script>
+  <script src="/vendor/xterm-addon-fit/lib/addon-fit.js"></script>
+  <script src="/vendor/xterm-addon-web-links/lib/addon-web-links.js"></script>
   <script src="/js/ws-client.js"></script>
   <script src="/js/modal.js"></script>
   <script src="/js/settings.js"></script>
@@ -68,6 +72,20 @@
   <script src="/js/task-progress.js"></script>
   <script src="/js/deleted-task.js"></script>
   <script src="/js/dashboard.js"></script>
+  <script src="/js/orchestrator.js"></script>
   <script src="/js/app.js"></script>
+
+  <!-- Orchestrator Slide-in Panel -->
+  <div id="orchestratorPanel" class="orchestrator-panel">
+    <div class="orchestrator-panel-header">
+      <span class="orchestrator-panel-title">Orchestrator</span>
+      <span id="orchestratorProviderLabel" class="orchestrator-panel-provider"></span>
+      <div style="flex:1;"></div>
+      <button class="btn btn-ghost btn-sm" id="btnCloseOrchestrator">&times;</button>
+    </div>
+    <div class="orchestrator-terminal-wrap" id="orchestratorTerminalWrap">
+      <div id="orchestratorTerminal"></div>
+    </div>
+  </div>
 </body>
 </html>

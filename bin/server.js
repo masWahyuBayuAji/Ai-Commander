@@ -78,3 +78,41 @@ server.listen(PORT, () => {
     openBrowser(dashboardUrl);
   }
 });
+
+// --- Graceful shutdown ---
+function gracefulShutdown(signal) {
+  console.log(`\n  Received ${signal}, shutting down gracefully...`);
+
+  server.close(() => {
+    console.log('  HTTP server closed.');
+
+    // Clean up IPC socket
+    const { getSocketPath } = require('../src/server/ipc-socket');
+    const fs = require('node:fs');
+    const socketPath = getSocketPath();
+    if (fs.existsSync(socketPath)) {
+      fs.unlinkSync(socketPath);
+    }
+
+    const serverInfoPath = require('node:path').join(
+      require('node:os').homedir(),
+      '.ai-commander',
+      'server.json'
+    );
+    if (fs.existsSync(serverInfoPath)) {
+      fs.unlinkSync(serverInfoPath);
+    }
+
+    console.log('  Cleanup complete. Goodbye!');
+    process.exit(0);
+  });
+
+  // Force exit after 3 seconds if graceful shutdown hangs
+  setTimeout(() => {
+    console.error('  Forced exit after timeout.');
+    process.exit(1);
+  }, 3000);
+}
+
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));

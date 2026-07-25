@@ -14,6 +14,13 @@ require('./routes/orchestrator.routes');
 require('./routes/dashboard.routes');
 
 const PUBLIC_DIR = path.join(__dirname, '..', '..', 'public');
+const NODE_MODULES_DIR = path.join(__dirname, '..', '..', 'node_modules');
+
+const VENDOR_PACKAGES = {
+  'xterm': '@xterm/xterm',
+  'xterm-addon-fit': '@xterm/addon-fit',
+  'xterm-addon-web-links': '@xterm/addon-web-links',
+};
 
 const MIME_TYPES = {
   '.html': 'text/html',
@@ -63,6 +70,21 @@ function createServer(port) {
       if (!handled) {
         sendJson(res, 404, { error: 'Not Found' });
       }
+      return;
+    }
+
+    // Vendor packages from node_modules (allowlisted)
+    if (pathname.startsWith('/vendor/')) {
+      const parts = pathname.slice('/vendor/'.length).split('/');
+      const alias = parts[0];
+      const rest = parts.slice(1).join('/');
+      const pkgName = VENDOR_PACKAGES[alias];
+      if (pkgName) {
+        const vendorPath = path.join(NODE_MODULES_DIR, pkgName, rest);
+        if (serveStaticFile(res, vendorPath)) return;
+      }
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      res.end('Not Found');
       return;
     }
 

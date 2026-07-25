@@ -64,7 +64,7 @@ async function startTask(taskId) {
   const cwd = projectGroup ? projectGroup.repo_path : process.cwd();
 
   // Build spawn command
-  const { command, args } = adapter.buildSpawnCommand({ cwd, initialPrompt });
+  const { command, args } = adapter.buildSpawnCommand({ cwd, initialPrompt, interactive: false });
 
   try {
     // Spawn PTY process

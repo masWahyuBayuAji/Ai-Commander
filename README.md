@@ -32,7 +32,7 @@ Setelah mencoba beberapa tools kanban/orchestrator AI yang ada, ditemukan dua ma
 - 🗂️ **Multi-repository** via **Project Group** (mapping alias project ke path folder)
 - ⚙️ **Kanban Group Settings**: atur alur "next step move to" + instruksi default per tahap (mis. instruksi commit di tahap `COMMIT`, instruksi baca `/context` sebelum `/exit` di tahap `DONE`)
 - 🖥️ **Task Progress View**: live terminal view dari session AI yang sedang berjalan
-- 🧭 **Orchestrator Terminal**: satu terminal penuh untuk membuat task/list task secara otomatis
+- 🧭 **Orchestrator Terminal**: satu terminal penuh untuk membuat task/list task secara otomatis (selalu session baru setiap dibuka)
 - 📊 **Dashboard realtime**: total token usage (dalam K) & total task selesai per Project Group
 - 🗑️ **Soft-delete task**: task yang dihapus disimpan (bukan dihapus permanen), bisa dikembalikan ke `TO-DO`
 - 🤖 Dukungan provider: **Claude Code** & **OpenCode** (via CLI, bypass permission)

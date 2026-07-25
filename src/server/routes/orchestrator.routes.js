@@ -22,10 +22,33 @@ router.post('/api/orchestrator/input', (req, res, { body }) => {
   res.end(JSON.stringify(result));
 });
 
+// POST /api/orchestrator/stop - Stop orchestrator PTY
+router.post('/api/orchestrator/stop', (req, res) => {
+  const result = orchestratorRunner.stop();
+  res.writeHead(result.ok ? 200 : 400, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(result));
+});
+
 // GET /api/orchestrator/status - Check orchestrator status
 router.get('/api/orchestrator/status', (req, res) => {
   res.writeHead(200, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify({ running: orchestratorRunner.isRunning() }));
+  res.end(JSON.stringify({
+    running: orchestratorRunner.isRunning(),
+    provider: orchestratorRunner.getProvider(),
+  }));
+});
+
+// POST /api/orchestrator/resize - Resize orchestrator PTY
+router.post('/api/orchestrator/resize', (req, res, { body }) => {
+  if (!body || !body.cols || !body.rows) {
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'cols and rows are required' }));
+    return;
+  }
+
+  const result = orchestratorRunner.resize(body.cols, body.rows);
+  res.writeHead(result.ok ? 200 : 400, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(result));
 });
 
 module.exports = router;
