@@ -63,6 +63,7 @@ skema SQL dari `ARCHITECTURE.md` §4 (tabel `settings`, `project_groups`,
 Jangan ubah nama kolom/tabel.
 **Cara Test:** File SQL valid (bisa dijalankan lewat `sqlite3` CLI atau
 lewat `better-sqlite3` tanpa syntax error).
+**status: done**
 
 ### TASK-005: Modul koneksi DB & migration runner
 **Deskripsi:** Buat `src/db/connection.js`. Modul ini harus:
@@ -82,6 +83,7 @@ lewat `better-sqlite3` tanpa syntax error).
 `~/.ai-commander/`, dan seluruh tabel dari §4 ARCHITECTURE.md ada
 (cek pakai `sqlite3 ~/.ai-commander/data.db ".tables"`). Jalankan dua kali,
 pastikan tidak error (migration idempotent).
+**status: done**
 
 ### TASK-006: Seed default kanban groups
 **Deskripsi:** Tambahkan logic seed (bisa di file migration terpisah
@@ -106,6 +108,7 @@ Jalankan seed ini hanya jika tabel `kanban_groups` masih kosong (cek
 query `SELECT name, position, next_step_group_id FROM kanban_groups ORDER
 BY position` harus menghasilkan 5 baris sesuai urutan & instruction di
 atas.
+**status: done**
 
 ### TASK-007: Helper `shared/uuid.js` & `shared/short-id.js`
 **Deskripsi:** `src/shared/uuid.js` cukup: `module.exports = () =>
@@ -117,6 +120,7 @@ boleh diserahkan ke repository layer, cukup buat generator murni di sini).
 **Cara Test:** Buat test kecil manual (`node -e ...`) yang memanggil
 fungsi 1000 kali dan pastikan tidak ada duplikat di 1000 sample tsb (peluang
 collision rendah, cukup smoke test).
+**status: done**
 
 ---
 
@@ -133,6 +137,7 @@ repo bertugas `JSON.stringify`/`JSON.parse` otomatis saat baca/tulis.
 **Cara Test:** Tulis test manual: set `use_grouping_project` ke `true`
 (boolean asli di JS), baca lagi, pastikan hasilnya `true` (boolean, bukan
 string `"true"`).
+**status: done**
 
 ### TASK-009: `projectGroup.repo.js`
 **Deskripsi:** Implement `list({ includeDeleted=false })`,
@@ -144,6 +149,7 @@ mem-filter `deleted_at IS NULL` kecuali `includeDeleted=true` diminta.
 **Cara Test:** Buat 2 project group, list harus mengembalikan 2 item.
 `softDelete` salah satu, list default harus mengembalikan 1 item saja,
 `list({includeDeleted:true})` mengembalikan 2 item.
+**status: done**
 
 ### TASK-010: `kanbanGroup.repo.js`
 **Deskripsi:** Implement `listByProjectGroup(projectGroupId)` (
@@ -154,6 +160,7 @@ NULL` saat null), `getById(id)`, `create({...})`, `update(id, {...})`,
 `"Kanban group TO-DO/DONE tidak boleh dihapus"`).
 **Cara Test:** Coba `softDelete` pada kanban group TO-DO default →
 harus throw error. Coba pada kanban group custom (bukan locked) → berhasil.
+**status: done**
 
 ### TASK-011: `task.repo.js`
 **Deskripsi:** Implement `listByKanbanGroup(kanbanGroupId)`,
@@ -168,6 +175,7 @@ todoKanbanGroupId` sekaligus), `listDeleted()`.
 **Cara Test:** Buat task, pindahkan kanban group via
 `updateKanbanGroup`, cek row di `task_events` bertambah 1 dengan type
 `stage_change` dan content berupa JSON `{from, to}`.
+**status: done**
 
 ### TASK-012: `tokenUsage.repo.js` & `deletedTask` query
 **Deskripsi:** `tokenUsage.repo.js`: `record({ projectGroupId, taskId,
@@ -180,6 +188,7 @@ tokensInput, tokensOutput })`, `sumByProjectGroup()` → mengembalikan array
 **Cara Test:** Insert beberapa dummy token_usage row lewat SQL manual,
 panggil `sumByProjectGroup()`, cocokkan hasil kalkulasi manual dengan hasil
 fungsi.
+**status: done**
 
 ---
 
@@ -199,6 +208,7 @@ fungsi.
 **Cara Test:** Jalankan server di port tertentu (mis. 4321), akses
 `http://localhost:4321/` di browser harus menampilkan isi
 `public/index.html` (boleh masih placeholder kosong di tahap ini).
+**status: done**
 
 ### TASK-014: `router.js` — manual path matcher
 **Deskripsi:** Buat router sederhana native (tanpa Express) yang
@@ -210,6 +220,7 @@ handler)`, dst. `handler(req, res, { params, query, body })`.
 **Cara Test:** Daftarkan route dummy `GET /api/ping` yang balas
 `{ok:true}` dan `POST /api/echo` yang balas kembali body yang dikirim.
 Test pakai `curl`.
+**status: done**
 
 ### TASK-015: Endpoint Settings (`settings.routes.js`)
 **Deskripsi:** Implement `GET /api/settings` (balas seluruh settings via
@@ -219,6 +230,7 @@ dokumentasikan di komentar kode, sarankan format `{ use_grouping_project:
 true }` — merge dengan existing settings). Panggil `settings.repo.js`.
 **Cara Test:** `curl -X PUT -d '{"use_grouping_project":true}' ...`
 lalu `curl GET /api/settings` mencerminkan perubahan.
+**status: done**
 
 ### TASK-016: Endpoint Project Groups (`project-groups.routes.js`)
 **Deskripsi:** Implement 4 endpoint sesuai tabel di `ARCHITECTURE.md` §5:
@@ -230,6 +242,7 @@ warning di response (`{ data, warning: "Path tidak ditemukan" }`), jangan
 blok pembuatan (user mungkin belum membuat foldernya).
 **Cara Test:** CRUD lengkap via `curl`, cek soft delete bekerja (`DELETE`
 lalu `GET` list tidak menampilkannya).
+**status: done**
 
 ### TASK-017: Endpoint Kanban Groups (`kanban-groups.routes.js`)
 **Deskripsi:** Implement endpoint sesuai §5. `GET
@@ -242,6 +255,7 @@ menolak locked group — pastikan endpoint meneruskan error tsb sebagai
 response `400` dengan pesan errornya, bukan 500 generic).
 **Cara Test:** Coba hapus kolom TO-DO via `curl DELETE` → harus balas 400
 dengan pesan jelas. Buat kolom baru custom → berhasil, muncul di list.
+**status: done**
 
 ### TASK-018: Endpoint Tasks dasar (CRUD, tanpa run CLI dulu)
 **Deskripsi:** Implement di `tasks.routes.js`: `GET /api/tasks` (filter
@@ -257,6 +271,7 @@ diperketat nanti).
 **Cara Test:** Buat task baru tanpa provider (harus gagal validasi, balas
 400). Buat dengan `aiProvider: "claude-code"` → berhasil, muncul otomatis
 di kolom TO-DO.
+**status: done**
 
 ### TASK-019: Endpoint Deleted Task & Restore
 **Deskripsi:** `GET /api/tasks/deleted` (pakai `task.repo.listDeleted()`),
@@ -265,6 +280,7 @@ di kolom TO-DO.
 **Cara Test:** Hapus sebuah task, cek muncul di `GET
 /api/tasks/deleted`, panggil restore, cek task kembali muncul di `GET
 /api/tasks?kanban_group_id=<id TO-DO>` dan hilang dari list deleted.
+**status: done**
 
 ---
 
@@ -280,6 +296,7 @@ mengirim ke semua client yang subscribe channel tsb (channel contoh:
 **Cara Test:** Buka 2 tab browser dengan script kecil yang subscribe
 channel `board`, panggil `broadcast('board', {test:true})` dari server
 side (lewat endpoint debug sementara), pastikan kedua tab menerima pesan.
+**status: done**
 
 ### TASK-021: Hubungkan broadcast ke event penting
 **Deskripsi:** Panggil `wsServer.broadcast('board', {...})` setiap kali
@@ -290,6 +307,7 @@ kanban group berubah. Payload minimal: `{ type: 'task_updated' |
 **Cara Test:** Buka UI kanban (boleh masih placeholder), buat task baru
 lewat `curl`, pastikan browser menerima event via console.log tanpa
 refresh halaman.
+**status: done**
 
 ---
 
@@ -308,6 +326,7 @@ taskId, targetKanbanGroupId }`.
 ~/.ai-commander/ipc.sock` kirim JSON manual, cek server menerima &
 mem-parsing dengan benar (log ke console dulu sebelum implement logic
 transisi sebenarnya).
+**status: done**
 
 ### TASK-023: Implement handler `transition` di ipc-socket
 **Deskripsi:** Saat menerima pesan `transition`, server harus:
@@ -326,6 +345,7 @@ transisi sebenarnya).
 **Cara Test:** Simulasikan lewat `nc -U` (tanpa proses agent asli dulu):
 kirim transition, cek `tasks.kanban_group_id` di DB berubah, cek client
 WS menerima broadcast.
+**status: done**
 
 ### TASK-024: Endpoint HTTP `POST /api/tasks/:id/transition`
 **Deskripsi:** Buat endpoint HTTP yang melakukan validasi & aksi PERSIS
@@ -336,6 +356,7 @@ Endpoint ini dipakai UI (drag-drop task antar kolom kanban secara manual
 oleh user).
 **Cara Test:** `curl POST /api/tasks/:id/transition -d
 '{"targetKanbanGroupId":"..."}'`, cek hasil sama dengan test TASK-023.
+**status: done**
 
 ### TASK-025: `bin/cli.js` implementasi penuh
 **Deskripsi:** Implement command:
@@ -357,6 +378,7 @@ Program harus:
 `ai-commander-cli update - <task_uuid_valid> <kanban_group_uuid_valid>`,
 cek task berpindah kolom di UI/DB. Coba dengan uuid task yang tidak ada →
 harus mencetak error dan exit code 1.
+**status: done**
 
 ---
 
