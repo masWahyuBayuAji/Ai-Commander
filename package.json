@@ -1,0 +1,31 @@
+{
+  "name": "ai-commander",
+  "version": "0.1.0",
+  "description": "بِسْمِ اللهِ الرَّحْمنِ الرَّحِيمِ آللَّهُمَّ صَلِّ  وَ سَلِّم عَلَى سَيِّدِنَا مُحَمَّدٍ وَ عَلَى آلِ سَيِّدِنَا مُحَمَّد",
+  "bin": {
+    "ai-commander": "./bin/server.js",
+    "ai-commander-cli": "./bin/cli.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "better-sqlite3": "^11.0.0",
+    "node-pty": "^1.0.0",
+    "ws": "^8.18.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/masWahyuBayuAji/Ai-Commander.git"
+  },
+  "bugs": {
+    "url": "https://github.com/masWahyuBayuAji/Ai-Commander/issues"
+  },
+  "homepage": "https://github.com/masWahyuBayuAji/Ai-Commander#readme"
+}
