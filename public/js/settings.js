@@ -78,6 +78,17 @@
           </div>
         </div>
 
+        <div class="settings-section">
+          <div class="settings-section-title">Color Theme</div>
+          <div class="form-group">
+            <label for="colorTheme">Select Theme</label>
+            <select id="colorTheme" class="form-control">
+              <option value="dark-navy">Dark Navy (Default)</option>
+              <option value="light-green-white">Light Green-White</option>
+            </select>
+          </div>
+        </div>
+
         <div class="settings-section" id="projectAliasSection" style="${useGrouping ? '' : 'display:none'}">
           <div class="settings-section-title">Project Alias Mapping</div>
           <table class="data-table" id="projectGroupTable">
@@ -155,6 +166,25 @@
       this.parentElement.nextElementSibling.querySelector('strong').textContent = val ? 'yes' : 'no';
       renderKanbanGroupTable();
     });
+
+    var colorThemeSelect = document.getElementById('colorTheme');
+    if (colorThemeSelect) {
+      colorThemeSelect.value = settings.color_theme || 'dark-navy';
+      colorThemeSelect.addEventListener('change', function() {
+        var theme = this.value;
+        settings.color_theme = theme;
+        fetch('/api/settings', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ color_theme: theme })
+        }).then(function(res) { return res.json(); })
+          .then(function(data) {
+            settings = data.data;
+            document.body.setAttribute('data-theme', theme);
+            localStorage.setItem('color_theme', theme);
+          });
+      });
+    }
 
     document.getElementById('btnSaveProjectGroup').addEventListener('click', saveProjectGroup);
     document.getElementById('btnCancelProjectGroup').addEventListener('click', cancelEditProjectGroup);

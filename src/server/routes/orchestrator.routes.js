@@ -2,8 +2,9 @@ const { router } = require('../router');
 const orchestratorRunner = require('../../core/orchestrator-runner');
 
 // POST /api/orchestrator/start - Start orchestrator PTY
-router.post('/api/orchestrator/start', (req, res) => {
-  const result = orchestratorRunner.start('claude-code');
+router.post('/api/orchestrator/start', (req, res, { body }) => {
+  const provider = (body && body.provider) || 'claude-code';
+  const result = orchestratorRunner.start(provider);
   res.writeHead(result.ok ? 200 : 400, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify(result));
 });

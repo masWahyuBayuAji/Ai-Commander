@@ -4,9 +4,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI Commander</title>
+  <script>
+    // Apply saved theme immediately to prevent FOUC
+    (function() {
+      var saved = localStorage.getItem('color_theme') || 'dark-navy';
+      document.body.setAttribute('data-theme', saved);
+    })();
+  </script>
   <link rel="stylesheet" href="/css/app.css">
 </head>
-<body>
+<body data-theme="dark-navy">
   <header class="header">
     <div class="header-left">
       <button class="view-toggle active" data-view="kanban" title="Kanban View">
@@ -30,7 +37,15 @@
     </div>
     <div class="toolbar-right">
       <button class="btn btn-ghost" id="btnNewGroup" onclick="KanbanBoard.openNewGroupModal()">+ Group</button>
-      <button class="btn-orchestrator" id="btnOrchestrator">Open Orchestrator</button>
+      <div class="dropdown" id="orchestratorDropdown">
+        <button class="btn-orchestrator dropdown-toggle" id="btnOrchestrator">
+          Open Orchestrator <span class="dropdown-arrow">&#9662;</span>
+        </button>
+        <div class="dropdown-menu" id="orchestratorMenu">
+          <button class="dropdown-item" data-provider="claude-code">Claude Code</button>
+          <button class="dropdown-item" data-provider="opencode">OpenCode</button>
+        </div>
+      </div>
     </div>
   </div>
 

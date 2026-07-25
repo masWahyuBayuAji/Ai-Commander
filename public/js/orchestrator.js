@@ -5,7 +5,14 @@
     if (started) return;
 
     try {
-      var res = await fetch('/api/orchestrator/start', { method: 'POST' });
+      var params = new URLSearchParams(window.location.search);
+      var provider = params.get('provider') || 'claude-code';
+
+      var res = await fetch('/api/orchestrator/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: provider })
+      });
       var json = await res.json();
       if (json.ok) {
         started = true;
