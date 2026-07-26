@@ -7,11 +7,14 @@
  * 
  * Format based on ARCHITECTURE.md §6.1:
  * - project_group_uuid (or "null" if not using grouping)
+ * - project_alias_mappings (name → path for each alias in the project group)
  * - task_uuid (short id)
  * - List of all kanban groups with uuid, slash_command, next_step_group_id, instruction
  * - Explicit command to run ai-commander-cli update ... when ready to move to next stage
  * - Task detail from user at the end with clear label
  */
+
+const projectAliasMappingRepo = require('../db/repositories/projectAliasMapping.repo');
 
 /**
  * Build the initial prompt for an AI agent task
@@ -24,6 +27,19 @@
 function buildInitialPrompt({ task, projectGroup, kanbanGroups }) {
   const projectGroupUuid = projectGroup ? projectGroup.id : 'null';
   const taskUuid = task.id;
+
+  // Build project alias mappings section
+  let aliasMappingsSection = '';
+  if (projectGroup) {
+    const aliases = projectAliasMappingRepo.listByProjectGroup(projectGroup.id);
+    if (aliases.length > 0) {
+      const aliasLines = aliases.map(a => `  - ${a.name} → ${a.path}`).join('\n');
+      aliasMappingsSection = `
+=== PROJECT ALIAS MAPPINGS ===
+Berikut adalah daftar alias untuk project group ini:
+${aliasLines}`;
+    }
+  }
 
   // Build kanban groups section
   const kanbanGroupsList = kanbanGroups.map(kg => {
@@ -44,7 +60,7 @@ function buildInitialPrompt({ task, projectGroup, kanbanGroups }) {
   // Build the prompt
   const prompt = `=== AI COMMANDER TASK CONTEXT ===
 
-Project Group UUID: ${projectGroupUuid}
+Project Group UUID: ${projectGroupUuid}${aliasMappingsSection}
 Task UUID: ${taskUuid}
 Current Kanban Group ID: ${task.kanban_group_id}
 TO-DO Kanban Group ID: ${todoGroupId}
@@ -87,6 +103,19 @@ function buildAgentInstructions({ task, projectGroup, kanbanGroups }) {
   const projectGroupUuid = projectGroup ? projectGroup.id : 'null';
   const taskUuid = task.id;
 
+  // Build project alias mappings section
+  let aliasMappingsSection = '';
+  if (projectGroup) {
+    const aliases = projectAliasMappingRepo.listByProjectGroup(projectGroup.id);
+    if (aliases.length > 0) {
+      const aliasLines = aliases.map(a => `  - ${a.name} → ${a.path}`).join('\n');
+      aliasMappingsSection = `
+=== PROJECT ALIAS MAPPINGS ===
+Berikut adalah daftar alias untuk project group ini:
+${aliasLines}`;
+    }
+  }
+
   const kanbanGroupsList = kanbanGroups.map(kg => {
     const nextStep = kg.next_step_group_id ? kg.next_step_group_id : 'null';
     const instruction = kg.instruction ? kg.instruction : 'Tidak ada instruksi khusus';
@@ -102,7 +131,7 @@ function buildAgentInstructions({ task, projectGroup, kanbanGroups }) {
 
   return `=== AI COMMANDER TASK CONTEXT ===
 
-Project Group UUID: ${projectGroupUuid}
+Project Group UUID: ${projectGroupUuid}${aliasMappingsSection}
 Task UUID: ${taskUuid}
 Current Kanban Group ID: ${task.kanban_group_id}
 TO-DO Kanban Group ID: ${todoGroupId}
