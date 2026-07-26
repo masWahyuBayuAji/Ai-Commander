@@ -9,7 +9,24 @@ const wsServer = require('../ws-server');
 // POST /api/orchestrator/start - Start orchestrator PTY
 router.post('/api/orchestrator/start', (req, res, { body }) => {
   const provider = (body && body.provider) || 'claude-code';
-  const result = orchestratorRunner.start(provider);
+  const projectGroupId = (body && body.projectGroupId) || null;
+
+  // Resolve cwd: use project group's repo_path, or default to process.cwd()
+  let cwd = null;
+  if (projectGroupId) {
+    const pg = projectGroupRepo.getById(projectGroupId);
+    if (pg && pg.repo_path) {
+      cwd = pg.repo_path;
+    }
+  }
+  if (!cwd) {
+    // fallback: use first project group with repo_path, or process.cwd()
+    const allPgs = projectGroupRepo.list();
+    const pgWithRepo = allPgs.find(p => p.repo_path);
+    cwd = pgWithRepo ? pgWithRepo.repo_path : process.cwd();
+  }
+
+  const result = orchestratorRunner.start(provider, { cwd, projectGroupId });
   res.writeHead(result.ok ? 200 : 400, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify(result));
 });

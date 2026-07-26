@@ -2,11 +2,22 @@ const pty = require('node-pty');
 const { getAdapter } = require('./provider-adapters');
 const wsServer = require('../server/ws-server');
 const { buildOrchestratorPrompt } = require('./orchestrator-prompt-builder');
+const opencodeAgentFile = require('./opencode-agent-file');
+const projectGroupRepo = require('../db/repositories/projectGroup.repo');
 
 let orchestratorProcess = null;
 let currentProvider = null;
+let orchestratorCwd = null;
+let orchestratorProjectGroupId = null;
 
-function start(providerName, cwd) {
+/**
+ * Start orchestrator
+ * @param {string} providerName - 'claude-code' or 'opencode'
+ * @param {Object} [options]
+ * @param {string} [options.cwd] - working directory
+ * @param {string} [options.projectGroupId] - project group ID for context
+ */
+function start(providerName, options) {
   if (orchestratorProcess) {
     return { ok: false, error: 'Orchestrator already running' };
   }
@@ -16,16 +27,43 @@ function start(providerName, cwd) {
     return { ok: false, error: 'Unknown provider: ' + providerName };
   }
 
+  const { cwd, projectGroupId } = options || {};
+  const resolvedCwd = cwd || process.cwd();
   const systemPrompt = buildOrchestratorPrompt();
 
+  // For opencode: write orchestrator agent file
+  let agentName = null;
+  if (providerName === 'opencode') {
+    let projectGroupName = 'default';
+    if (projectGroupId) {
+      const pg = projectGroupRepo.getById(projectGroupId);
+      if (pg) {
+        projectGroupName = pg.name;
+      }
+    } else {
+      // Use first project group name or 'default'
+      const allPgs = projectGroupRepo.list();
+      if (allPgs.length > 0) {
+        projectGroupName = allPgs[0].name;
+      }
+    }
+    agentName = opencodeAgentFile.getOrchestratorAgentName(projectGroupName);
+    opencodeAgentFile.writeOrchestratorAgentFile({
+      cwd: resolvedCwd,
+      projectGroupName,
+      instructions: systemPrompt,
+    });
+  }
+
   const { command, args } = adapter.buildSpawnCommand({
-    cwd: cwd || process.cwd(),
+    cwd: resolvedCwd,
     interactive: true,
     systemPrompt,
+    agentName,
   });
 
   try {
-    console.log('Spawning:', command, args, 'cwd:', cwd || process.cwd());
+    console.log('Spawning:', command, args, 'cwd:', resolvedCwd);
     const spawnEnv = Object.assign({}, process.env);
     // Ensure PATH includes common locations for opencode/claude
     if (!spawnEnv.PATH) {
@@ -45,7 +83,7 @@ function start(providerName, cwd) {
       name: 'xterm-256color',
       cols: 120,
       rows: 30,
-      cwd: cwd || process.cwd(),
+      cwd: resolvedCwd,
       env: spawnEnv
     });
 
@@ -58,17 +96,50 @@ function start(providerName, cwd) {
       const signal = typeof code === 'object' ? (code.signal || '') : '';
       console.log('Orchestrator process exited:', { exitCode, signal });
       wsServer.broadcast('orchestrator', { content: '\r\n[Orchestrator process exited, code: ' + exitCode + (signal ? ' signal: ' + signal : '') + ']\r\n' });
-      orchestratorProcess = null;
-      currentProvider = null;
+      cleanupOrchestrator();
     });
 
     currentProvider = providerName;
+    orchestratorCwd = resolvedCwd;
+    orchestratorProjectGroupId = projectGroupId || null;
 
     return { ok: true };
   } catch (e) {
     console.error('Orchestrator start error:', e);
+    // Cleanup agent file on error
+    cleanupOrchestratorAgentFile();
     return { ok: false, error: e.message };
   }
+}
+
+/**
+ * Cleanup orchestrator agent file for opencode
+ */
+function cleanupOrchestratorAgentFile() {
+  if (currentProvider === 'opencode' && orchestratorCwd) {
+    // Try to find and delete the agent file
+    const allPgs = projectGroupRepo.list();
+    const pgs = orchestratorProjectGroupId
+      ? allPgs.filter(pg => pg.id === orchestratorProjectGroupId)
+      : allPgs.length > 0 ? [allPgs[0]] : [];
+    for (const pg of pgs) {
+      opencodeAgentFile.deleteOrchestratorAgentFile({
+        cwd: orchestratorCwd,
+        projectGroupName: pg.name,
+      });
+    }
+  }
+}
+
+/**
+ * Cleanup orchestrator state
+ */
+function cleanupOrchestrator() {
+  cleanupOrchestratorAgentFile();
+  orchestratorProcess = null;
+  currentProvider = null;
+  orchestratorCwd = null;
+  orchestratorProjectGroupId = null;
 }
 
 function sendInput(text) {
@@ -92,13 +163,11 @@ function stop() {
 
   try {
     orchestratorProcess.kill();
-    orchestratorProcess = null;
-    currentProvider = null;
+    cleanupOrchestrator();
     return { ok: true };
   } catch (e) {
     console.error('Orchestrator stop error:', e);
-    orchestratorProcess = null;
-    currentProvider = null;
+    cleanupOrchestrator();
     return { ok: false, error: e.message };
   }
 }

@@ -66,7 +66,7 @@ async function startTask(taskId) {
   if (task.ai_provider === 'opencode') {
     const instructions = buildAgentInstructions({ task, projectGroup, kanbanGroups });
     agentName = opencodeAgentFile.getAgentName(task.id);
-    opencodeAgentFile.writeAgentFile({ cwd, taskId: task.id, instructions });
+    opencodeAgentFile.writeTaskAgentFile({ cwd, taskId: task.id, instructions });
   }
 
   // Prompt yang dikirim sebagai "task/prompt user" = detail task apa adanya.

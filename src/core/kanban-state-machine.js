@@ -25,7 +25,7 @@ function validateAndTransition(taskId, targetKanbanGroupId) {
   if (targetGroup.is_locked_done === 1 && task.ai_provider === 'opencode') {
     const projectGroup = task.project_group_id ? projectGroupRepo.getById(task.project_group_id) : null;
     const cwd = projectGroup ? projectGroup.repo_path : process.cwd();
-    opencodeAgentFile.deleteAgentFile({ cwd, taskId: task.id });
+    opencodeAgentFile.deleteTaskAgentFile({ cwd, taskId: task.id });
   }
 
   return { ok: true, task: updatedTask };

@@ -5,7 +5,7 @@
  * Supports both interactive (orchestrator) and non-interactive (task runner) modes.
  *
  * Verified CLI flags (opencode v1.18.5):
- * - Interactive: `opencode` (no flags)
+ * - Interactive: `opencode [--agent <name>]`
  * - Non-interactive: `opencode run --auto --agent <name> "prompt"`
  */
 
@@ -14,13 +14,18 @@
  * @param {Object} options
  * @param {string} options.cwd - Working directory for the CLI
  * @param {string} options.initialPrompt - prompt/task detail yang dikirim ke opencode
- * @param {string} [options.agentName] - nama custom agent (opencode run --agent <name>)
+ * @param {string} [options.agentName] - nama custom agent (opencode --agent <name>)
  * @param {boolean} options.interactive - If true, spawn interactive mode (for orchestrator)
  * @returns {{ command: string, args: string[] }} Command and arguments for node-pty
  */
 function buildSpawnCommand({ cwd, initialPrompt, agentName, interactive }) {
   if (interactive) {
-    return { command: 'opencode', args: [] };
+    // Orchestrator mode: opencode [--agent <name>]
+    const args = [];
+    if (agentName) {
+      args.push('--agent', agentName);
+    }
+    return { command: 'opencode', args };
   }
 
   // Task runner mode: non-interactive, pakai custom agent per-task kalau ada
