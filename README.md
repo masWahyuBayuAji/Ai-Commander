@@ -42,6 +42,8 @@ Setelah mencoba beberapa tools kanban/orchestrator AI yang ada, ditemukan dua ma
 - 🔄 **Auto-recovery**: server otomatis memulihkan task yang terputus saat server di-restart
 - 🟢 **Running indicator**: task yang sedang berjalan ditandai dengan border hijau dan label "Running"
 - ⚡ **Optimistic UI**: tombol Start menampilkan feedback langsung saat diklik (Starting... → Running)
+- 💾 **Persistent project group selection**: pilihan project group terakhir disimpan otomatis dan di-restore setelah reload
+- 📌 **Sticky toolbar**: header dan toolbar tetap terlihat di atas layar saat scroll-y
 
 ---
 

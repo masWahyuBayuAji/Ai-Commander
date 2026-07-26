@@ -162,6 +162,7 @@ CREATE TABLE settings (
   value TEXT NOT NULL         -- JSON string
 );
 -- contoh row: ('use_grouping_project', 'true' | 'false')
+-- contoh row: ('selected_project_group', '<project_group_id> | "default"')
 
 CREATE TABLE project_groups (
   id TEXT PRIMARY KEY,            -- uuid
@@ -270,7 +271,7 @@ bersama path unix socket, dibaca oleh `ai-commander-cli`).
 |--------|--------------------------------------------------|----------------------------------------------|
 | GET    | `/`                                              | Serve UI (index.html)                        |
 | GET    | `/api/settings`                                  | Ambil settings                               |
-| PUT    | `/api/settings`                                  | Update settings (use_grouping_project, dll.) |
+| PUT    | `/api/settings`                                  | Update settings (use_grouping_project, selected_project_group, dll.) |
 | GET    | `/api/project-groups`                            | List project group (alias mapping)           |
 | POST   | `/api/project-groups`                            | Buat project group baru                      |
 | PUT    | `/api/project-groups/:id`                        | Edit project group                           |
@@ -498,12 +499,18 @@ ai-commander-cli create <project_group_uuid|-> <detail> [ai_provider]
   - Semua `kanban_groups` yang dibuat lewat Setting akan meminta memilih
     `project_group_id` tertentu. Kanban board di halaman utama menyediakan
     dropdown "Change Project Group" untuk berpindah konteks papan kanban
-    antar repo.
+    antar repo. Pilihan terakhir disimpan otomatis ke tabel `settings`
+    (key: `selected_project_group`) dan di-restore saat halaman di-reload.
 - **Jika no**: `kanban_groups.project_group_id = NULL` untuk semua kanban
   group, hanya ada 1 papan kanban global, task tidak terikat repo tertentu
   secara eksplisit lewat sistem ini (path kerja bisa diisi manual per task
   jika diperlukan, di luar cakupan tahap 1 — dicatat sebagai catatan open
   di TASKS.md).
+
+**Sticky Toolbar**: Header (tombol view toggle + Setting) dan toolbar
+(dropdown Project Group + Orchestrator) dibungkus dalam satu container
+`.top-bar` dengan `position: sticky; top: 0` sehingga keduanya tetap
+terlihat di atas layar saat user scroll-y ke bawah.
 
 **Working Directory**: Saat task di-start, cwd PTY ditentukan oleh:
 1. Jika ada `project_alias_mappings` dengan `is_working_directory = 1` untuk
