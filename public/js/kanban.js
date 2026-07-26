@@ -311,6 +311,12 @@
     loadBoard();
 
     document.getElementById('projectGroupSelect').addEventListener('change', function() {
+      var val = this.value;
+      fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ selected_project_group: val })
+      }).catch(function() {});
       loadBoard();
     });
 

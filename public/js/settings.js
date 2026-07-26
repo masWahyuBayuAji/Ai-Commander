@@ -715,6 +715,30 @@
       projectGroups.map(function(pg) {
         return '<option value="' + pg.id + '">' + escapeHtml(pg.name) + '</option>';
       }).join('');
+
+    try {
+      var res = await fetch('/api/settings');
+      var json = await res.json();
+      var saved = json.data && json.data.selected_project_group;
+      if (saved) {
+        select.value = saved;
+        select.dispatchEvent(new Event('change'));
+      }
+    } catch (e) {}
+
+    select.removeEventListener('change', _onProjectGroupChange);
+    select.addEventListener('change', _onProjectGroupChange);
+  }
+
+  function _onProjectGroupChange() {
+    var select = document.getElementById('projectGroupSelect');
+    if (!select) return;
+    var val = select.value;
+    fetch('/api/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ selected_project_group: val })
+    }).catch(function() {});
   }
 
   function escapeHtml(str) {
