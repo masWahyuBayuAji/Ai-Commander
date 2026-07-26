@@ -52,7 +52,7 @@ function update(id, fields) {
   const values = [];
 
   for (const [key, value] of Object.entries(fields)) {
-    if (allowedFields.includes(key)) {
+    if (allowedFields.includes(key) && value !== undefined) {
       updates.push(`${key} = ?`);
       values.push(value);
     }
