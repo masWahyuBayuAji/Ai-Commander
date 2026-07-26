@@ -13,6 +13,25 @@ router.get('/api/kanban-groups', (req, res, { query }) => {
   res.end(JSON.stringify({ data: groups }));
 });
 
+// POST /api/kanban-groups/seed-defaults - Buat 3 default kanban group untuk project group
+router.post('/api/kanban-groups/seed-defaults', (req, res, { body }) => {
+  const projectGroupId = body && body.project_group_id;
+  if (!projectGroupId) {
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'project_group_id is required' }));
+    return;
+  }
+
+  const created = kanbanGroupRepo.createDefaultsForProjectGroup(projectGroupId);
+
+  res.writeHead(201, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ data: created }));
+
+  if (created.length > 0) {
+    wsServer.broadcast('board', { type: 'kanban_group_updated', data: { seeded: true, project_group_id: projectGroupId } });
+  }
+});
+
 // POST /api/kanban-groups - Tambah kanban group
 router.post('/api/kanban-groups', (req, res, { body }) => {
   if (!body || !body.name) {
@@ -49,6 +68,7 @@ router.post('/api/kanban-groups', (req, res, { body }) => {
     position: body.position ?? maxPosition + 1,
     nextStepGroupId: body.next_step_group_id || null,
     instruction: body.instruction || null,
+    isLockedDelete: body.is_locked_delete ? 1 : 0,
   });
 
   res.writeHead(201, { 'Content-Type': 'application/json' });

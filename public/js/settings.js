@@ -312,6 +312,17 @@
 
   async function loadAndRenderKanbanGroups(pgId) {
     await loadKanbanGroups(pgId);
+
+    const useGrouping = settings.use_grouping_project === true || settings.use_grouping_project === 'true';
+    if (useGrouping && pgId && kanbanGroups.length === 0) {
+      await fetch('/api/kanban-groups/seed-defaults', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ project_group_id: pgId })
+      });
+      await loadKanbanGroups(pgId);
+    }
+
     renderKanbanGroupRows();
   }
 
@@ -324,12 +335,10 @@
       return;
     }
 
-    const otherGroups = kanbanGroups.filter(function(kg) {
-      return !kg.is_locked_todo && !kg.is_locked_done;
-    });
-
     tbody.innerHTML = kanbanGroups.map(function(kg) {
       const isLocked = kg.is_locked_todo || kg.is_locked_done;
+      const canDelete = !kg.is_locked_todo && !kg.is_locked_done && !kg.is_locked_delete;
+
       const nextOptions = kanbanGroups
         .filter(function(k) { return k.id !== kg.id; })
         .map(function(k) {
@@ -352,7 +361,7 @@
           </td>
           <td class="actions">
             ${!isLocked ? '<button class="btn btn-ghost btn-sm" onclick="SettingsPage.saveKanbanGroup(\'' + kg.id + '\')">Save</button>' : ''}
-            ${!isLocked ? '<button class="btn btn-danger btn-sm" onclick="SettingsPage.deleteKanbanGroup(\'' + kg.id + '\')">Delete</button>' : ''}
+            ${canDelete ? '<button class="btn btn-danger btn-sm" onclick="SettingsPage.deleteKanbanGroup(\'' + kg.id + '\')">Delete</button>' : ''}
           </td>
         </tr>
       `;
