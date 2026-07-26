@@ -17,7 +17,8 @@ const pty = require('node-pty');
 const taskRepo = require('../db/repositories/task.repo');
 const kanbanGroupRepo = require('../db/repositories/kanbanGroup.repo');
 const projectGroupRepo = require('../db/repositories/projectGroup.repo');
-const { buildInitialPrompt } = require('./prompt-builder');
+const { buildInitialPrompt, buildAgentInstructions } = require('./prompt-builder');
+const opencodeAgentFile = require('./opencode-agent-file');
 const { getAdapter } = require('./provider-adapters');
 const wsServer = require('../server/ws-server');
 const uuid = require('../shared/uuid');
@@ -54,17 +55,28 @@ async function startTask(taskId) {
   // Get kanban groups for this project
   const kanbanGroups = kanbanGroupRepo.listByProjectGroup(task.project_group_id);
 
-  // Build initial prompt
-  const initialPrompt = buildInitialPrompt({ task, projectGroup, kanbanGroups });
-
   // Get provider adapter
   const adapter = getAdapter(task.ai_provider);
 
   // Determine working directory
   const cwd = projectGroup ? projectGroup.repo_path : process.cwd();
 
+  // Untuk opencode: generate & tulis custom agent file per-task (pengganti --system)
+  let agentName;
+  if (task.ai_provider === 'opencode') {
+    const instructions = buildAgentInstructions({ task, projectGroup, kanbanGroups });
+    agentName = opencodeAgentFile.getAgentName(task.id);
+    opencodeAgentFile.writeAgentFile({ cwd, taskId: task.id, instructions });
+  }
+
+  // Prompt yang dikirim sebagai "task/prompt user" = detail task apa adanya.
+  // Konteks kanban lengkap sudah ada di file agent (untuk opencode).
+  const initialPrompt = task.ai_provider === 'opencode'
+    ? task.detail
+    : buildInitialPrompt({ task, projectGroup, kanbanGroups });
+
   // Build spawn command
-  const { command, args } = adapter.buildSpawnCommand({ cwd, initialPrompt, interactive: false });
+  const { command, args } = adapter.buildSpawnCommand({ cwd, initialPrompt, agentName, interactive: false });
 
   try {
     // Spawn PTY process

@@ -6,30 +6,28 @@
  *
  * Verified CLI flags (opencode v1.18.5):
  * - Interactive: `opencode` (no flags)
- * - Interactive with system prompt: `opencode --system "Focus on security"`
- * - Non-interactive: `opencode run --auto "prompt"`
+ * - Non-interactive: `opencode run --auto --agent <name> "prompt"`
  */
 
 /**
  * Build spawn command for OpenCode CLI
  * @param {Object} options
  * @param {string} options.cwd - Working directory for the CLI
- * @param {string} options.initialPrompt - Initial prompt to send to the CLI
- * @param {string} options.systemPrompt - System prompt for persistent instructions (orchestrator mode)
+ * @param {string} options.initialPrompt - prompt/task detail yang dikirim ke opencode
+ * @param {string} [options.agentName] - nama custom agent (opencode run --agent <name>)
  * @param {boolean} options.interactive - If true, spawn interactive mode (for orchestrator)
  * @returns {{ command: string, args: string[] }} Command and arguments for node-pty
  */
-function buildSpawnCommand({ cwd, initialPrompt, systemPrompt, interactive }) {
+function buildSpawnCommand({ cwd, initialPrompt, agentName, interactive }) {
   if (interactive) {
-    const args = [];
-    if (systemPrompt) {
-      args.push('--system', systemPrompt);
-    }
-    return { command: 'opencode', args };
+    return { command: 'opencode', args: [] };
   }
 
-  // Task runner mode: non-interactive with run subcommand
+  // Task runner mode: non-interactive, pakai custom agent per-task kalau ada
   const args = ['run', '--auto'];
+  if (agentName) {
+    args.push('--agent', agentName);
+  }
   if (initialPrompt) {
     args.push(initialPrompt);
   }
