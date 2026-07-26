@@ -24,6 +24,10 @@ CLI ↔ Server, dan alur hemat-token yang jadi dasar desain aplikasi ini.
      (dashboard, kanban board, terminal stream). Alternatif native
      (long-polling via `node:http`) sengaja dihindari karena tidak efisien
      untuk streaming terminal output.
+   - `@xterm/xterm` + `@xterm/addon-fit` + `@xterm/addon-web-links` →
+     terminal emulator di browser untuk merender output PTY dengan akurat
+     (ANSI color, cursor, Unicode, dll). Di-vendored di `public/vendor/`
+     agar tidak memerlukan bundler.
    - `uuid` **tidak dipakai** — gunakan `crypto.randomUUID()` bawaan Node.
    Semua dependency lain (routing, validasi, ORM, dsb.) **dibuat manual**.
 3. **1 Task = 1 Session CLI**: setiap task yang dijalankan membuka **satu**
@@ -35,10 +39,11 @@ CLI ↔ Server, dan alur hemat-token yang jadi dasar desain aplikasi ini.
    auto-approve (mis. `--permission-mode bypassPermissions` untuk Claude
    Code, atau flag setara di OpenCode) sehingga tidak ada prompt konfirmasi
    yang menggantung menunggu user.
-5. **Instruksi tahap kanban dikirim sekali di awal prompt**, bukan lewat
-   polling berulang. Agent AI sendiri yang secara aktif memanggil
-   `ai-commander-cli update ...` ketika mencapai checkpoint tahap
-   berikutnya (lihat §6). Ini menghindari overhead network/polling terus-menerus.
+5. **Instruksi tahap kanban dikirim sekali di awal** (lewat prompt atau
+   custom agent file), bukan lewat polling berulang. Agent AI sendiri yang
+   secara aktif memanggil `ai-commander-cli update ...` ketika mencapai
+   checkpoint tahap berikutnya (lihat §6). Ini menghindari overhead
+   network/polling terus-menerus.
 
 ---
 
@@ -51,6 +56,7 @@ CLI ↔ Server, dan alur hemat-token yang jadi dasar desain aplikasi ini.
 | Realtime          | `ws` (WebSocket)                                                 |
 | Database          | SQLite via `better-sqlite3`                                      |
 | Terminal / PTY    | `node-pty`                                                       |
+| Terminal UI       | `@xterm/xterm` + `@xterm/addon-fit` + `@xterm/addon-web-links`  |
 | Frontend          | HTML + CSS + Vanilla JS (tanpa framework), di-serve statis        |
 | CLI Bridge        | Binary kedua `ai-commander-cli` (native `node:net` unix socket)   |
 | Packaging         | npm package dengan 2 bin entry: `ai-commander`, `ai-commander-cli`|
@@ -75,12 +81,14 @@ ai-commander/
 │   │       ├── project-groups.routes.js
 │   │       ├── kanban-groups.routes.js
 │   │       ├── tasks.routes.js
+│   │       ├── deleted-tasks.routes.js
 │   │       ├── dashboard.routes.js
 │   │       └── orchestrator.routes.js
 │   ├── db/
 │   │   ├── connection.js      # inisialisasi better-sqlite3 + migration runner
 │   │   ├── migrations/
 │   │   │   ├── 001_init.sql
+│   │   │   ├── 002_add_is_locked_delete.sql
 │   │   │   └── ...
 │   │   └── repositories/
 │   │       ├── settings.repo.js
@@ -92,13 +100,16 @@ ai-commander/
 │   ├── core/
 │   │   ├── kanban-state-machine.js   # validasi "next step move to"
 │   │   ├── task-runner.js            # spawn pty, kirim prompt awal, capture output
+│   │   ├── orchestrator-runner.js    # pty khusus utk halaman Orchestrator
+│   │   ├── recovery.js               # recover orphaned tasks saat server restart
 │   │   ├── provider-adapters/
+│   │   │   ├── index.js              # adapter registry + getAdapter()
 │   │   │   ├── claude-code.adapter.js
 │   │   │   └── opencode.adapter.js
 │   │   ├── prompt-builder.js         # bangun prompt instruksi awal task
 │   │   ├── orchestrator-prompt-builder.js # bangun prompt instruksi awal orchestrator
-│   │   ├── token-usage-parser.js     # parse token usage dari output CLI
-│   │   └── orchestrator-runner.js    # pty khusus utk halaman Orchestrator
+│   │   ├── opencode-agent-file.js    # manage custom agent file per-task utk OpenCode
+│   │   └── token-usage-parser.js     # parse token usage dari output CLI
 │   └── shared/
 │       ├── uuid.js             # wrapper crypto.randomUUID()
 │       ├── short-id.js         # generator uuid pendek (8 char) utk task
@@ -106,13 +117,20 @@ ai-commander/
 ├── public/
 │   ├── index.html
 │   ├── css/app.css
+│   ├── vendor/                     # xterm.js library (vendored)
+│   │   ├── xterm/
+│   │   ├── xterm-addon-fit/
+│   │   └── xterm-addon-web-links/
 │   └── js/
+│       ├── app.js
 │       ├── kanban.js
 │       ├── list-view.js
 │       ├── settings.js
 │       ├── dashboard.js
-│       ├── task-progress.js     # xterm-like renderer utk stream pty (native canvas/DOM)
-│       ├── orchestrator.js
+│       ├── task-progress.js     # xterm.js terminal renderer utk stream pty
+│       ├── orchestrator.js      # xterm.js terminal renderer utk orchestrator
+│       ├── deleted-task.js
+│       ├── modal.js
 │       └── ws-client.js
 ├── package.json
 ├── README.md
@@ -155,6 +173,7 @@ CREATE TABLE kanban_groups (
   position INTEGER NOT NULL,           -- urutan tampilan kolom kanban
   is_locked_todo INTEGER NOT NULL DEFAULT 0,  -- 1 jika ini kolom TO-DO (tak boleh dihapus)
   is_locked_done INTEGER NOT NULL DEFAULT 0,  -- 1 jika ini kolom DONE (tak boleh dihapus)
+  is_locked_delete INTEGER NOT NULL DEFAULT 0, -- 1 jika kolom ini tak boleh dihapus (mis. ON PROGRESS)
   next_step_group_id TEXT NULL,        -- FK ke kanban_groups.id ("next step move to")
   instruction TEXT NULL,               -- instruksi default utk agent di tahap ini
   created_at TEXT NOT NULL,
@@ -172,7 +191,7 @@ CREATE TABLE tasks (
   detail TEXT NOT NULL,              -- "Detail Task" dari form New Task
   ai_provider TEXT NOT NULL,         -- 'claude-code' | 'opencode'
   session_pid INTEGER NULL,          -- pid proses pty yang sedang berjalan (jika ada)
-  session_status TEXT NOT NULL DEFAULT 'idle', -- idle | running | waiting_manual | finished | error
+  session_status TEXT NOT NULL DEFAULT 'idle', -- idle | running | waiting_manual | finished | error | interrupted
   started_at TEXT NULL,
   finished_at TEXT NULL,
   created_at TEXT NOT NULL,
@@ -209,11 +228,13 @@ CREATE INDEX idx_task_events_task_id ON task_events(task_id);
 
 **Catatan default seed** (dijalankan sekali saat DB pertama kali dibuat):
 - Jika `use_grouping_project = false`: buat 5 `kanban_groups` default dengan
-  `project_group_id = NULL`: `TO-DO` (locked_todo), `ON PROGRESS`,
-  `NEED REVIEW`, `COMMIT`, `DONE` (locked_done), dengan `next_step_group_id`
-  berantai sesuai urutan tsb.
+  `project_group_id = NULL`: `TO-DO` (locked_todo), `ON PROGRESS`
+  (locked_delete), `NEED REVIEW`, `COMMIT`, `DONE` (locked_done), dengan
+  `next_step_group_id` berantai sesuai urutan tsb.
 - `TO-DO` selalu `instruction = NULL`.
 - `DONE` default instruction: `"Jalankan /context sebelum /exit."`
+- `ON PROGRESS` di-lock dari delete (`is_locked_delete = 1`) karena merupakan
+  kolom transisi wajib yang tidak boleh dihapus.
 
 ---
 
@@ -243,6 +264,7 @@ bersama path unix socket, dibaca oleh `ai-commander-cli`).
 | DELETE | `/api/tasks/:id`                                 | Soft delete (set deleted_at)                 |
 | POST   | `/api/tasks/:id/restore`                         | Restore ke TO-DO (dari Deleted Task view)     |
 | GET    | `/api/tasks/deleted`                             | List task ter-soft-delete                     |
+| GET    | `/api/tasks/:id/events`                          | Ambil log events task utk Task Progress View  |
 | GET    | `/api/dashboard/summary`                         | Total token usage (K) + total done per group  |
 | WS     | `/ws/tasks/:id`                                  | Stream live terminal output (Task Progress)   |
 | WS     | `/ws/orchestrator`                                | Stream live terminal Orchestrator             |
@@ -262,17 +284,18 @@ bersama path unix socket, dibaca oleh `ai-commander-cli`).
 
 1. Server mengambil daftar `kanban_groups` untuk `project_group_id` task
    tersebut (atau global jika null), diurutkan sesuai `position`.
-2. Server membangun **prompt instruksi awal** (`prompt-builder.js`) berisi:
-   - `project_group_uuid` (atau `null`)
-   - `task_uuid` (short id)
-   - Daftar seluruh kanban group beserta: `uuid`, `slash_command`
-     (mis. `/need-review`), `next_step_group_id`, dan `instruction`
-   - Perintah eksplisit: *"Jalankan `ai-commander-cli update <project_group_uuid>
-     <task_uuid> <target_kanban_group_uuid>` sendiri ketika kamu merasa
-     pekerjaan pada tahap ini sudah selesai dan siap pindah ke tahap
-     berikutnya. Lakukan ini otomatis kecuali instruksi tahap tsb secara
-     eksplisit meminta konfirmasi manual."*
-   - Isi `detail` task dari user.
+2. Server membangun **instruksi workflow** (berbeda per provider):
+   - **Claude Code**: `prompt-builder.js` menghasilkan prompt lengkap berisi
+     `project_group_uuid`, `task_uuid`, daftar kanban group beserta
+     `slash_command`, `next_step_group_id`, `instruction`, dan perintah
+     eksplisit untuk menjalankan `ai-commander-cli update ...`. Prompt ini
+     dikirim langsung sebagai input pertama ke pty.
+   - **OpenCode**: Karena OpenCode tidak mendukung flag `--system`, konteks
+     kanban ditulis ke **custom agent file** (`.opencode/agent/aic-task-<id>.md`)
+     oleh `opencode-agent-file.js`. File ini berisi instruksi workflow yang sama
+     dengan prompt Claude Code. Task detail dari user dikirim langsung sebagai
+     prompt ke `opencode run --auto --agent <agent_name> "detail"`.
+     File agent dihapus otomatis saat task selesai (masuk DONE).
 3. Server memindahkan task dari `TO-DO` ke `next_step_group_id` milik
    `TO-DO` (default: `ON PROGRESS`) — **transisi ini terjadi sebelum** agent
    mulai bekerja, sesuai keinginan alur di spesifikasi.
@@ -360,16 +383,23 @@ ai-commander-cli create <project_group_uuid|-> <detail> [ai_provider]
 - Menggunakan `node-pty` untuk membuka pseudo-terminal asli agar output
   (termasuk ANSI escape code, progress bar, dsb.) identik dengan menjalankan
   CLI secara manual di terminal.
-- Frontend merender stream ini di elemen `<pre>`/custom canvas ringan
-  (`public/js/task-progress.js`) yang mem-parsing ANSI dasar secara manual
-  (warna, bold) — tanpa library terminal emulator pihak ketiga, untuk tetap
-  menjaga prinsip native-first (jika kompleksitas ANSI parsing manual
-  ternyata terlalu tinggi, tim boleh mengevaluasi `xterm.js` sebagai
-  pengecualian dependency, didiskusikan dulu sebelum ditambahkan).
+- Frontend merender stream terminal menggunakan **`@xterm/xterm`**
+  (`public/js/task-progress.js` dan `public/js/orchestrator.js`) dengan addon
+  `@xterm/addon-fit` (auto-resize) dan `@xterm/addon-web-links` (klik link
+  di terminal). Library xterm.js di-vendored di `public/vendor/xterm/` agar
+  tidak memerlukan bundler. CSS xterm.js di-load via `<link>` di `index.html`.
+- **Task Progress View**: dibuka sebagai modal fullscreen saat user mengklik
+  task yang sedang berjalan. Terminal xterm.js diinisialisasi dengan theme
+  gelap (GitHub-style), `disableStdin: true` (read-only), dan `scrollback:
+  10000`. History log di-load dari `GET /api/tasks/:id/events`, lalu live
+  stream masuk lewat WebSocket channel `task:<id>`.
 - **Orchestrator** memakai mekanisme pty yang sama, tapi tidak terikat ke 1
   task — ini adalah sesi bebas untuk membuat/menyusun banyak task/list task
-  otomatis. Saat orchestrator di-start, server mengirim **initial prompt**
-  (`orchestrator-prompt-builder.js`) yang berisi:
+  otomatis. Orchestrator ditampilkan sebagai **slide-in panel** di sisi kanan
+  layar (bukan modal terpisah), dengan terminal xterm.js interaktif
+  (`disableStdin: false`, `cursorBlink: true`). User bisa mengetik langsung
+  di terminal orchestrator. Saat orchestrator di-start, server mengirim
+  **initial prompt** (`orchestrator-prompt-builder.js`) yang berisi:
   - Instruksi cara membuat task: `ai-commander-cli create <project_uuid|-> "detail" [provider]`
   - Instruksi cara memindahkan task: `ai-commander-cli update ...`
   - Daftar project groups & kanban groups yang tersedia di database
@@ -386,6 +416,9 @@ ai-commander-cli create <project_group_uuid|-> <detail> [ai_provider]
   (jika ada), lalu `POST /api/orchestrator/start` untuk spawn session baru.
   Ini memastikan orchestrator selalu mulai dalam kondisi bersih — tidak ada
   residual state dari session sebelumnya (termasuk setelah browser reload).
+- Orchestrator mendukung **resize otomatis** via `@xterm/addon-fit`:
+  `ResizeObserver` dan `window.resize` event memicu `fitAddon.fit()`, lalu
+  mengirim dimensi baru ke server via `POST /api/orchestrator/resize`.
 
 ---
 
@@ -443,6 +476,9 @@ ai-commander-cli create <project_group_uuid|-> <detail> [ai_provider]
   },
   "engines": { "node": ">=18" },
   "dependencies": {
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/addon-web-links": "^0.12.0",
+    "@xterm/xterm": "^6.0.0",
     "better-sqlite3": "^11.0.0",
     "node-pty": "^1.0.0",
     "ws": "^8.18.0"
@@ -469,3 +505,66 @@ Karena seluruh operasi CLI dijalankan tanpa konfirmasi manual, ai-commander
 - Server hanya menerima koneksi `ai-commander-cli` lewat **unix domain
   socket lokal** (bukan TCP terbuka), agar perintah `update`/`create` tidak
   bisa dipicu dari luar mesin.
+
+---
+
+## 13. Recovery Orphaned Tasks
+
+Karena PTY processes disimpan di **in-memory Map** (bukan persistent), saat
+server restart semua task yang sedang `running` akan kehilangan PTY-nya
+(orphaned). Modul `recovery.js` menangani ini:
+
+1. Saat startup, server query semua task dengan `session_status = 'running'`.
+2. Untuk setiap orphaned task:
+   - Update `session_status` menjadi `'interrupted'`
+   - Set `session_pid = NULL`
+   - Insert `task_events` (type `error`) dengan pesan: *"Server direstart,
+     session sebelumnya terputus. Silakan mulai ulang task ini secara manual."*
+3. User dapat melihat task interrupted di UI dan memulai ulang secara manual
+   (klik Start).
+
+**Tidak ada auto-resume** PTY process — ini disengaja karena:
+- PTY state (scroll buffer, environment) tidak bisa dipulihkan secara
+  sempurna.
+- Agent AI mungkin sedang dalam state yang konsisten, restart paksa bisa
+  menyebabkan inkonsistensi.
+
+---
+
+## 14. Provider Adapters
+
+Arsitektur provider adapter memungkinkan dukungan untuk multiple AI CLI
+(Claude Code, OpenCode) dengan interface yang konsisten.
+
+**Lokasi**: `src/core/provider-adapters/`
+
+**Interface** (setiap adapter harus mengimplementasi):
+```javascript
+{
+  buildSpawnCommand({ cwd, initialPrompt, agentName, interactive })
+    → { command: string, args: string[] }
+  
+  formatInitialPrompt(prompt)
+    → string
+}
+```
+
+**Adapter yang tersedia**:
+- **`claude-code.adapter.js`**: Spawn `claude` dengan flag
+  `--permission-mode bypassPermissions --print`. Prompt dikirim langsung
+  sebagai input pertama ke pty.
+- **`opencode.adapter.js`**: Spawn `opencode` dengan mode berbeda:
+  - Interactive (orchestrator): `opencode` tanpa flag
+  - Non-interactive (task runner): `opencode run --auto --agent <name> "prompt"`
+    dengan custom agent file per-task (lihat §6.1).
+
+**Registry**: `provider-adapters/index.js` menyediakan `getAdapter(name)`
+yang mengembalikan adapter berdasarkan provider name (`'claude-code'` |
+`'opencode'`).
+
+**Custom Agent File (OpenCode)**: Karena OpenCode tidak mendukung flag
+`--system` untuk system prompt, ai-commander menulis file `.md` agent per-task
+ke `.opencode/agent/aic-task-<id>.md` di dalam project. Setiap task punya
+file sendiri (nama pakai short-uuid), sehingga task yang berjalan bersamaan
+di project yang sama tidak saling menimpa. File ini dibuat saat task start
+dan dihapus otomatis saat task selesai (masuk DONE).
