@@ -108,7 +108,7 @@ ai-commander/
 │   │   │   └── opencode.adapter.js
 │   │   ├── prompt-builder.js         # bangun prompt instruksi awal task
 │   │   ├── orchestrator-prompt-builder.js # bangun prompt instruksi awal orchestrator
-│   │   ├── opencode-agent-file.js    # manage custom agent file per-task utk OpenCode
+│   │   ├── opencode-agent-file.js    # manage custom agent file (task runner + orchestrator) utk OpenCode
 │   │   └── token-usage-parser.js     # parse token usage dari output CLI
 │   └── shared/
 │       ├── uuid.js             # wrapper crypto.randomUUID()
@@ -268,7 +268,7 @@ bersama path unix socket, dibaca oleh `ai-commander-cli`).
 | GET    | `/api/dashboard/summary`                         | Total token usage (K) + total done per group  |
 | WS     | `/ws/tasks/:id`                                  | Stream live terminal output (Task Progress)   |
 | WS     | `/ws/orchestrator`                                | Stream live terminal Orchestrator             |
-| POST   | `/api/orchestrator/start`                        | Buka pty orchestrator (selalu fresh — stop process lama dulu jika ada) |
+| POST   | `/api/orchestrator/start`                        | Buka pty orchestrator (body: `{ provider, projectGroupId? }`) — stop process lama dulu jika ada |
 | POST   | `/api/orchestrator/stop`                         | Hentikan pty orchestrator yang sedang jalan                             |
 | POST   | `/api/orchestrator/input`                        | Kirim input ke pty orchestrator                                        |
 | POST   | `/api/orchestrator/resize`                       | Resize terminal orchestrator                                           |
@@ -363,9 +363,14 @@ ai-commander-cli create <project_group_uuid|-> <detail> [ai_provider]
 ```
 
 1. User membuka halaman Orchestrator, memilih provider (OpenCode/Claude Code).
-2. Server spawn PTY dalam mode interaktif, lalu mengirim **initial prompt**
-   (`orchestrator-prompt-builder.js`) yang berisi instruksi cara membuat task
-   beserta daftar project groups & kanban groups.
+2. Server spawn PTY dalam mode interaktif:
+   - **Claude Code**: `claude --permission-mode bypassPermissions --system-prompt "..."`.
+     Prompt berisi project alias mapping, syntax create/update task, daftar
+     project groups & kanban groups.
+   - **OpenCode**: Menulis **custom agent file**
+     `.opencode/agent/aic-orchestrator-<projectGroupName>.md` (nama di-sanitize:
+     lowercase, spasi jadi `-`), lalu spawn `opencode --agent <agentName>`.
+     File agent berisi instruksi yang sama dengan prompt Claude Code.
 3. User mengetik permintaan dalam bahasa alami (mis. "buat task baru dengan
    deskripsi 'abc'").
 4. AI agent di orchestrator mengenali permintaan tersebut dan menjalankan
@@ -375,6 +380,8 @@ ai-commander-cli create <project_group_uuid|-> <detail> [ai_provider]
 6. Server (`ipc-socket.js`) membuat task baru di kolom `TO-DO`, lalu
    broadcast update ke UI kanban via WebSocket.
 7. Task baru muncul di kolom `TO-DO` secara realtime tanpa refresh.
+8. Saat orchestrator di-stop, server menghapus file agent orchestrator
+   secara otomatis (cleanup).
 
 ---
 
@@ -398,19 +405,20 @@ ai-commander-cli create <project_group_uuid|-> <detail> [ai_provider]
   otomatis. Orchestrator ditampilkan sebagai **slide-in panel** di sisi kanan
   layar (bukan modal terpisah), dengan terminal xterm.js interaktif
   (`disableStdin: false`, `cursorBlink: true`). User bisa mengetik langsung
-  di terminal orchestrator. Saat orchestrator di-start, server mengirim
-  **initial prompt** (`orchestrator-prompt-builder.js`) yang berisi:
-  - Instruksi cara membuat task: `ai-commander-cli create <project_uuid|-> "detail" [provider]`
-  - Instruksi cara memindahkan task: `ai-commander-cli update ...`
-  - Daftar project groups & kanban groups yang tersedia di database
-  - Aturan agar AI agent langsung menjalankan perintah create di terminal
-    ketika user meminta membuat task.
-  
-  AI agent (OpenCode/Claude Code) di orchestrator menerima prompt ini dan
-  mengetahui cara membuat task secara langsung lewat CLI, tanpa perlu
-  user mengetahui syntax command-nya. Selain itu, endpoint
-  `POST /api/orchestrator/create-tasks` juga tersedia untuk pembuatan
-  task via HTTP (bulk create).
+  di terminal orchestrator. Saat orchestrator di-start:
+  - **Claude Code**: server mengirim **initial prompt**
+    (`orchestrator-prompt-builder.js`) lewat `--system-prompt` flag.
+  - **OpenCode**: server menulis **custom agent file**
+    `.opencode/agent/aic-orchestrator-<projectGroupName>.md` dan spawn
+    `opencode --agent <agentName>`. Prompt yang sama dimasukkan sebagai isi
+    agent file.
+  - Prompt berisi: project alias mapping (name → UUID), syntax create task
+    (`ai-commander-cli create`), syntax move task (`ai-commander-cli update`),
+    daftar project groups & kanban groups, serta aturan workflow.
+  - AI agent di orchestrator menerima prompt ini dan mengetahui cara membuat
+    task secara langsung lewat CLI, tanpa perlu user mengetahui syntax
+    command-nya. Selain itu, endpoint `POST /api/orchestrator/create-tasks`
+    juga tersedia untuk pembuatan task via HTTP (bulk create).
 - **Setiap kali user membuka Orchestrator**, frontend selalu memanggil
   `POST /api/orchestrator/stop` terlebih dahulu untuk membunuh process lama
   (jika ada), lalu `POST /api/orchestrator/start` untuk spawn session baru.
@@ -551,10 +559,11 @@ Arsitektur provider adapter memungkinkan dukungan untuk multiple AI CLI
 
 **Adapter yang tersedia**:
 - **`claude-code.adapter.js`**: Spawn `claude` dengan flag
-  `--permission-mode bypassPermissions --print`. Prompt dikirim langsung
-  sebagai input pertama ke pty.
+  `--permission-mode bypassPermissions`. Mode interaktif (orchestrator):
+  `--system-prompt "..."`. Mode non-interactive (task runner): `--print "prompt"`.
 - **`opencode.adapter.js`**: Spawn `opencode` dengan mode berbeda:
-  - Interactive (orchestrator): `opencode` tanpa flag
+  - Interactive (orchestrator): `opencode --agent <name>` (menggunakan
+    custom agent file orchestrator, lihat §6.4)
   - Non-interactive (task runner): `opencode run --auto --agent <name> "prompt"`
     dengan custom agent file per-task (lihat §6.1).
 
@@ -563,8 +572,17 @@ yang mengembalikan adapter berdasarkan provider name (`'claude-code'` |
 `'opencode'`).
 
 **Custom Agent File (OpenCode)**: Karena OpenCode tidak mendukung flag
-`--system` untuk system prompt, ai-commander menulis file `.md` agent per-task
-ke `.opencode/agent/aic-task-<id>.md` di dalam project. Setiap task punya
-file sendiri (nama pakai short-uuid), sehingga task yang berjalan bersamaan
-di project yang sama tidak saling menimpa. File ini dibuat saat task start
-dan dihapus otomatis saat task selesai (masuk DONE).
+`--system` untuk system prompt, ai-commander menulis file `.md` agent
+ke `.opencode/agent/` di dalam project. Ada 2 jenis agent file:
+
+- **Task runner**: `.opencode/agent/aic-task-<id>.md` — per-task, dihapus
+  saat task selesai (masuk DONE). Berisi instruksi workflow kanban untuk
+  task spesifik.
+- **Orchestrator**: `.opencode/agent/aic-orchestrator-<projectGroupName>.md` —
+  per project group, dihapus saat orchestrator di-stop. Berisi instruksi
+  cara membuat task, move task, project alias mapping, dan daftar kanban
+  groups.
+
+Kedua jenis file dibuat oleh `opencode-agent-file.js` yang menyediakan
+fungsi `writeTaskAgentFile()`, `deleteTaskAgentFile()`,
+`writeOrchestratorAgentFile()`, dan `deleteOrchestratorAgentFile()`.
