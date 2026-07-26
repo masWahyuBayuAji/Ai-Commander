@@ -1,6 +1,7 @@
 const kanbanGroupRepo = require('../db/repositories/kanbanGroup.repo');
 const projectGroupRepo = require('../db/repositories/projectGroup.repo');
 const projectAliasMappingRepo = require('../db/repositories/projectAliasMapping.repo');
+const { buildReadInstructionsFirst } = require('./prompt-builder');
 
 /**
  * Build the orchestrator system prompt / agent instructions.
@@ -13,10 +14,12 @@ const projectAliasMappingRepo = require('../db/repositories/projectAliasMapping.
  *
  * @param {Object} [options]
  * @param {string} [options.mode] - 'claude' for --system-prompt, 'opencode' for agent file
+ * @param {boolean} [options.isCwdHome] - True if working directory is the user's home directory
+ * @param {string} [options.provider] - 'opencode' or 'claude-code' (needed when isCwdHome is true)
  * @returns {string}
  */
 function buildOrchestratorPrompt(options) {
-  const { mode } = options || {};
+  const { mode, isCwdHome, provider } = options || {};
   const projectGroups = projectGroupRepo.list();
 
   // ── Project alias mapping (name → uuid + alias mappings name → path) ──
@@ -57,10 +60,26 @@ Tidak ada project group. Gunakan "-" (tanda hubung) sebagai <project_group_uuid>
       }).join('\n');
   }
 
+  // ── Read-instructions-first section (only when cwd is home directory) ──
+  let readInstructionsSection = '';
+  if (isCwdHome && provider) {
+    const allAliases = [];
+    for (const pg of projectGroups) {
+      const aliases = projectAliasMappingRepo.listByProjectGroup(pg.id);
+      for (const a of aliases) {
+        allAliases.push(a);
+      }
+    }
+    if (allAliases.length > 0) {
+      readInstructionsSection = buildReadInstructionsFirst({ aliases: allAliases, provider });
+    }
+  }
+
   const prompt = `Kamu adalah AI orchestrator di ai-commander. Tugasmu: membuat & mengelola task di kanban.
 
 ${projectAliasSection}
 
+${readInstructionsSection}
 === KANBAN GROUPS ===
 ${kanbanGroupsSection}
 

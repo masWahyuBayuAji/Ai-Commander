@@ -1,12 +1,14 @@
 /**
  * OpenCode agent file manager
  *
- * Menulis & menghapus file custom agent opencode (.opencode/agent/*.md)
+ * Menulis & menghapus file custom agent opencode (.opencode/agents/*.md)
  * untuk task runner (per-task) DAN orchestrator.
  *
  * Task runner: aic-task-<taskId>  — satu file per task (bersihkan saat DONE)
  * Orchestrator: aic-orchestrator-<projectGroupName> — satu file per project group
  *              (dihapus saat orchestrator stop)
+ *
+ * Path sesuai dokumentasi opencode: .opencode/agents/ (pakai 's')
  */
 
 const fs = require('node:fs');
@@ -30,7 +32,7 @@ function getAgentName(taskId) {
  * @returns {string}
  */
 function getAgentFilePath(cwd, taskId) {
-  return path.join(cwd, '.opencode', 'agent', `${getAgentName(taskId)}.md`);
+  return path.join(cwd, '.opencode', 'agents', `${getAgentName(taskId)}.md`);
 }
 
 // ─── Orchestrator agent ───
@@ -55,13 +57,13 @@ function getOrchestratorAgentName(projectGroupName) {
  * @returns {string}
  */
 function getOrchestratorAgentFilePath(cwd, projectGroupName) {
-  return path.join(cwd, '.opencode', 'agent', `${getOrchestratorAgentName(projectGroupName)}.md`);
+  return path.join(cwd, '.opencode', 'agents', `${getOrchestratorAgentName(projectGroupName)}.md`);
 }
 
 // ─── Shared write/delete helpers ───
 
 /**
- * Tulis file agent ke disk. Folder .opencode/agent/ dibuat otomatis.
+ * Tulis file agent ke disk. Folder .opencode/agents/ dibuat otomatis.
  * @param {Object} options
  * @param {string} options.filePath - path absolut ke file .md
  * @param {string} options.description - deskripsi agent (untuk frontmatter)

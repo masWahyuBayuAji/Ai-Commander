@@ -1,4 +1,5 @@
 const pty = require('node-pty');
+const os = require('node:os');
 const { getAdapter } = require('./provider-adapters');
 const wsServer = require('../server/ws-server');
 const { buildOrchestratorPrompt } = require('./orchestrator-prompt-builder');
@@ -29,7 +30,11 @@ function start(providerName, options) {
 
   const { cwd, projectGroupId } = options || {};
   const resolvedCwd = cwd || process.cwd();
-  const systemPrompt = buildOrchestratorPrompt();
+
+  // Detect if cwd is the user's home directory (no specific working dir configured)
+  const isCwdHome = resolvedCwd === os.homedir();
+
+  const systemPrompt = buildOrchestratorPrompt({ isCwdHome, provider: providerName });
 
   // For opencode: cleanup stale agent files from ALL project groups, then write new one
   let agentName = null;
@@ -56,11 +61,15 @@ function start(providerName, options) {
       }
     }
     agentName = opencodeAgentFile.getOrchestratorAgentName(projectGroupName);
-    opencodeAgentFile.writeOrchestratorAgentFile({
+    const agentFilePath = opencodeAgentFile.writeOrchestratorAgentFile({
       cwd: resolvedCwd,
       projectGroupName,
       instructions: systemPrompt,
     });
+    console.log('[Orchestrator] OpenCode agent file written:', agentFilePath);
+    console.log('[Orchestrator] Agent name:', agentName);
+    console.log('[Orchestrator] CWD:', resolvedCwd);
+    console.log('[Orchestrator] Prompt length:', systemPrompt.length, 'chars');
   }
 
   const { command, args } = adapter.buildSpawnCommand({

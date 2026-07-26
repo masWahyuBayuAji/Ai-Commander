@@ -14,6 +14,7 @@
  */
 
 const pty = require('node-pty');
+const os = require('node:os');
 const taskRepo = require('../db/repositories/task.repo');
 const kanbanGroupRepo = require('../db/repositories/kanbanGroup.repo');
 const projectGroupRepo = require('../db/repositories/projectGroup.repo');
@@ -65,19 +66,26 @@ async function startTask(taskId) {
     cwd = projectAliasMappingRepo.getWorkingDirectoryPath(projectGroup.id);
   }
 
+  // Detect if cwd is the user's home directory (no specific working dir configured)
+  const isCwdHome = cwd === os.homedir();
+
   // Untuk opencode: generate & tulis custom agent file per-task (pengganti --system)
   let agentName;
   if (task.ai_provider === 'opencode') {
-    const instructions = buildAgentInstructions({ task, projectGroup, kanbanGroups });
+    const instructions = buildAgentInstructions({ task, projectGroup, kanbanGroups, isCwdHome });
     agentName = opencodeAgentFile.getAgentName(task.id);
-    opencodeAgentFile.writeTaskAgentFile({ cwd, taskId: task.id, instructions });
+    const agentFilePath = opencodeAgentFile.writeTaskAgentFile({ cwd, taskId: task.id, instructions });
+    console.log('[TaskRunner] OpenCode agent file written:', agentFilePath);
+    console.log('[TaskRunner] Agent name:', agentName);
+    console.log('[TaskRunner] CWD:', cwd);
+    console.log('[TaskRunner] isCwdHome:', isCwdHome);
   }
 
   // Prompt yang dikirim sebagai "task/prompt user" = detail task apa adanya.
   // Konteks kanban lengkap sudah ada di file agent (untuk opencode).
   const initialPrompt = task.ai_provider === 'opencode'
     ? task.detail
-    : buildInitialPrompt({ task, projectGroup, kanbanGroups });
+    : buildInitialPrompt({ task, projectGroup, kanbanGroups, isCwdHome });
 
   // Build spawn command
   const { command, args } = adapter.buildSpawnCommand({ cwd, initialPrompt, agentName, interactive: false });
