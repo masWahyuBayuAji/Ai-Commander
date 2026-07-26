@@ -322,12 +322,16 @@ bersama path unix socket, dibaca oleh `ai-commander-cli`).
      dengan UUID target yang sudah terisi (bukan placeholder). Prompt ini
      dikirim langsung sebagai input pertama ke pty.
    - **OpenCode**: Karena OpenCode tidak mendukung flag `--system`, konteks
-     kanban ditulis ke **custom agent file** (`.opencode/agent/aic-task-<id>.md`)
+      kanban ditulis ke **custom agent file** (`.opencode/agents/aic-task-<id>.md`)
      oleh `opencode-agent-file.js`. File ini berisi instruksi workflow yang sama
      dengan prompt Claude Code, termasuk `next_step_group_id` yang sudah terisi
      langsung. Task detail dari user dikirim langsung sebagai
      prompt ke `opencode run --auto --agent <agent_name> "detail"`.
-     File agent dihapus otomatis saat task selesai (masuk DONE).
+      File agent dihapus otomatis saat task selesai (masuk DONE).
+   - **Read-First Instruction** (kedua provider): Jika cwd adalah home
+     directory (`isCwdHome = true`), prompt/agent file akan menyertakan
+     instruksi agar AI membaca `AGENTS.md`/`CLAUDE.md` dari setiap path
+     project alias mapping sebelum memulai operasi (lihat §8).
 3. Server memindahkan task dari `TO-DO` ke `next_step_group_id` milik
    `TO-DO` (default: `ON PROGRESS`) — **transisi ini terjadi sebelum** agent
    mulai bekerja, sesuai keinginan alur di spesifikasi.
@@ -408,7 +412,7 @@ ai-commander-cli create <project_group_uuid|-> <detail> [ai_provider]
      Prompt berisi project alias mapping, syntax create/update task, daftar
      project groups & kanban groups.
    - **OpenCode**: Menulis **custom agent file**
-     `.opencode/agent/aic-orchestrator-<projectGroupName>.md` (nama di-sanitize:
+      `.opencode/agents/aic-orchestrator-<projectGroupName>.md` (nama di-sanitize:
      lowercase, spasi jadi `-`), lalu spawn `opencode --agent <agentName>`.
      File agent berisi instruksi yang sama dengan prompt Claude Code.
 3. User mengetik permintaan dalam bahasa alami (mis. "buat task baru dengan
@@ -459,7 +463,7 @@ ai-commander-cli create <project_group_uuid|-> <detail> [ai_provider]
   - **Claude Code**: server mengirim **initial prompt**
     (`orchestrator-prompt-builder.js`) lewat `--system-prompt` flag.
   - **OpenCode**: server menulis **custom agent file**
-    `.opencode/agent/aic-orchestrator-<projectGroupName>.md` dan spawn
+     `.opencode/agents/aic-orchestrator-<projectGroupName>.md` dan spawn
     `opencode --agent <agentName>`. Prompt yang sama dimasukkan sebagai isi
     agent file.
   - Prompt berisi: project alias mapping (name → UUID), syntax create task
@@ -507,6 +511,22 @@ ai-commander-cli create <project_group_uuid|-> <detail> [ai_provider]
 2. Jika tidak ada → fallback ke `os.homedir()`.
 3. Jika tidak ada project group → gunakan `process.cwd()` (folder tempat
    `ai-commander` dijalankan).
+
+**AGENTS.md / CLAUDE.md Read-First Instruction**: Jika working directory
+adalah home directory (`cwd === os.homedir()`, artinya tidak ada alias
+`is_working_directory = 1` yang dikonfigurasi), ai-commander otomatis
+menambahkan instruksi ke prompt/agent file agar AI membaca file instruksi
+dari setiap project alias mapping path **sebelum** memulai operasi apapun
+di path tersebut:
+
+- **OpenCode**: Prioritas baca `AGENTS.md`, fallback ke `CLAUDE.md` jika
+  tidak ditemukan. Juga berlaku untuk orchestrator.
+- **Claude Code**: Prioritas baca `CLAUDE.md`, fallback ke `AGENTS.md` jika
+  tidak ditemukan. Juga berlaku untuk orchestrator.
+
+Fitur ini memastikan AI mengikuti konvensi/project rules yang sudah ada di
+masing-masing repository sebelum mulai bekerja, meskipun cwd-nya adalah
+home directory (bukan path project spesifik).
 
 **Default kanban groups per project group**: Ketika user membuat project group
 baru lewat UI, server otomatis membuat **3 kanban groups** default untuk
@@ -652,12 +672,12 @@ yang mengembalikan adapter berdasarkan provider name (`'claude-code'` |
 
 **Custom Agent File (OpenCode)**: Karena OpenCode tidak mendukung flag
 `--system` untuk system prompt, ai-commander menulis file `.md` agent
-ke `.opencode/agent/` di dalam project. Ada 2 jenis agent file:
+ke `.opencode/agents/` di dalam project. Ada 2 jenis agent file:
 
-- **Task runner**: `.opencode/agent/aic-task-<id>.md` — per-task, dihapus
+- **Task runner**: `.opencode/agents/aic-task-<id>.md` — per-task, dihapus
   saat task selesai (masuk DONE). Berisi instruksi workflow kanban untuk
   task spesifik.
-- **Orchestrator**: `.opencode/agent/aic-orchestrator-<projectGroupName>.md` —
+- **Orchestrator**: `.opencode/agents/aic-orchestrator-<projectGroupName>.md` —
   per project group, dihapus saat orchestrator di-stop. Berisi instruksi
   cara membuat task, move task, project alias mapping, dan daftar kanban
   groups.

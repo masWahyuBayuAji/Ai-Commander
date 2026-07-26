@@ -36,6 +36,7 @@ Setelah mencoba beberapa tools kanban/orchestrator AI yang ada, ditemukan dua ma
 - 📊 **Dashboard realtime**: total token usage (dalam K) & total task selesai per Project Group
 - 🗑️ **Soft-delete task**: task yang dihapus disimpan (bukan dihapus permanen), bisa dikembalikan ke `TO-DO`
 - 🤖 Dukungan provider: **Claude Code** & **OpenCode** (via CLI, bypass permission)
+- 📖 **Auto-read project rules**: jika working directory adalah home directory, AI otomatis membaca `AGENTS.md`/`CLAUDE.md` dari setiap path project sebelum memulai pekerjaan
 - 🔁 Agent AI dapat **memindahkan task antar kanban group secara otomatis** lewat perintah CLI internal (`ai-commander-cli update ...`)
 - 🛠️ **CLI `ai-commander-cli`**: command `update` (pindah kanban group) & `create` (buat task baru) bisa dipanggil langsung oleh AI agent
 - 🔄 **Auto-recovery**: server otomatis memulihkan task yang terputus saat server di-restart
