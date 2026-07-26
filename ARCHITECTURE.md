@@ -89,19 +89,21 @@ ai-commander/
 │   │   ├── migrations/
 │   │   │   ├── 001_init.sql
 │   │   │   ├── 002_add_is_locked_delete.sql
-│   │   │   └── ...
+│   │   │   ├── 003_add_project_alias_mappings.sql
+│   │   │   ├── 004_drop_repo_path.sql
+│   │   │   └── 005_add_is_working_directory.sql
 │   │   └── repositories/
 │   │       ├── settings.repo.js
 │   │       ├── projectGroup.repo.js
 │   │       ├── kanbanGroup.repo.js
 │   │       ├── task.repo.js
 │   │       ├── tokenUsage.repo.js
-│   │       └── deletedTask.repo.js
+│   │       └── projectAliasMapping.repo.js
 │   ├── core/
 │   │   ├── kanban-state-machine.js   # validasi "next step move to"
 │   │   ├── task-runner.js            # spawn pty, kirim prompt awal, capture output
 │   │   ├── orchestrator-runner.js    # pty khusus utk halaman Orchestrator
-│   │   ├── recovery.js               # recover orphaned tasks saat server restart
+│   │   ├── recovery.js               # recover orphaned tasks saat server restart (NOTE: dead code, lihat §13)
 │   │   ├── provider-adapters/
 │   │   │   ├── index.js              # adapter registry + getAdapter()
 │   │   │   ├── claude-code.adapter.js
@@ -112,10 +114,10 @@ ai-commander/
 │   │   └── token-usage-parser.js     # parse token usage dari output CLI
 │   └── shared/
 │       ├── uuid.js             # wrapper crypto.randomUUID()
-│       ├── short-id.js         # generator uuid pendek (8 char) utk task
-│       └── constants.js        # nama kanban group default, dsb.
+│       └── short-id.js         # generator uuid pendek (8 char) utk task
 ├── public/
 │   ├── index.html
+│   ├── orchestrator.html          # standalone orchestrator page (legacy/alternate)
 │   ├── css/app.css
 │   ├── vendor/                     # xterm.js library (vendored)
 │   │   ├── xterm/
@@ -147,8 +149,13 @@ Semua tabel pakai **soft delete** via kolom `deleted_at` (nullable datetime,
 ISO string). Tidak ada `DELETE` fisik kecuali proses purge eksplisit di masa
 depan (di luar cakupan tahap 1).
 
+**Catatan**: Skema awal mengalami beberapa migrasi (003-005) yang menghapus
+kolom `repo_path` dari `project_groups` dan menambahkan tabel
+`project_alias_mappings` beserta Working Directory. Skema di bawah adalah
+**status akhir** setelah seluruh migrasi dijalankan.
+
 ```sql
--- 001_init.sql
+-- Final schema setelah migration 001-005
 
 CREATE TABLE settings (
   key TEXT PRIMARY KEY,
@@ -159,10 +166,22 @@ CREATE TABLE settings (
 CREATE TABLE project_groups (
   id TEXT PRIMARY KEY,            -- uuid
   name TEXT NOT NULL,             -- alias, contoh: "RMS", "Backend RMS"
-  repo_path TEXT NOT NULL,        -- path absolut ke folder project
+  use_alias_mapping INTEGER NOT NULL DEFAULT 0,  -- 1 = pakai alias mapping (multi-path)
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   deleted_at TEXT NULL
+);
+
+CREATE TABLE project_alias_mappings (
+  id TEXT PRIMARY KEY,                -- uuid
+  project_group_id TEXT NOT NULL,     -- FK ke project_groups
+  alias TEXT NOT NULL,                -- nama alias, contoh: "frontend", "backend"
+  path TEXT NOT NULL,                 -- path absolut ke folder
+  is_working_directory INTEGER NOT NULL DEFAULT 0,  -- 1 = working directory aktif utk cwd PTY
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  deleted_at TEXT NULL,
+  FOREIGN KEY (project_group_id) REFERENCES project_groups(id)
 );
 
 CREATE TABLE kanban_groups (
@@ -227,10 +246,14 @@ CREATE INDEX idx_task_events_task_id ON task_events(task_id);
 ```
 
 **Catatan default seed** (dijalankan sekali saat DB pertama kali dibuat):
-- Jika `use_grouping_project = false`: buat 5 `kanban_groups` default dengan
-  `project_group_id = NULL`: `TO-DO` (locked_todo), `ON PROGRESS`
-  (locked_delete), `NEED REVIEW`, `COMMIT`, `DONE` (locked_done), dengan
-  `next_step_group_id` berantai sesuai urutan tsb.
+- Jika `use_grouping_project = false` (atau tabel kosong): buat 5 `kanban_groups`
+  default dengan `project_group_id = NULL`: `TO-DO` (locked_todo),
+  `ON PROGRESS` (locked_delete), `NEED REVIEW`, `COMMIT`,
+  `DONE` (locked_done), dengan `next_step_group_id` berantai sesuai urutan tsb.
+- Jika user membuat project group baru lewat UI (dengan alias mapping), server
+  otomatis membuat **3 kanban groups default** untuk project group tsb:
+  `TO-DO` → `ON PROGRESS` → `DONE` (tanpa `NEED REVIEW` dan `COMMIT`).
+  User bisa menambahkan kanban group tambahan secara manual lewat Setting.
 - `TO-DO` selalu `instruction = NULL`.
 - `DONE` default instruction: `"Jalankan /context sebelum /exit."`
 - `ON PROGRESS` di-lock dari delete (`is_locked_delete = 1`) karena merupakan
@@ -266,8 +289,10 @@ bersama path unix socket, dibaca oleh `ai-commander-cli`).
 | GET    | `/api/tasks/deleted`                             | List task ter-soft-delete                     |
 | GET    | `/api/tasks/:id/events`                          | Ambil log events task utk Task Progress View  |
 | GET    | `/api/dashboard/summary`                         | Total token usage (K) + total done per group  |
-| WS     | `/ws/tasks/:id`                                  | Stream live terminal output (Task Progress)   |
-| WS     | `/ws/orchestrator`                                | Stream live terminal Orchestrator             |
+| WS     | `/ws`                                          | WebSocket endpoint — client kirim `{ subscribe: "channel" }` untuk join channel |
+|        | → channel `board`                              | Broadcast update kanban (task_updated, token_usage) |
+|        | → channel `task:<id>`                          | Stream live terminal output + exit event per task |
+|        | → channel `orchestrator`                       | Stream live terminal orchestrator |
 | POST   | `/api/orchestrator/start`                        | Buka pty orchestrator (body: `{ provider, projectGroupId? }`) — stop process lama dulu jika ada |
 | POST   | `/api/orchestrator/stop`                         | Hentikan pty orchestrator yang sedang jalan                             |
 | POST   | `/api/orchestrator/input`                        | Kirim input ke pty orchestrator                                        |
@@ -325,10 +350,15 @@ ai-commander-cli update <project_group_uuid|-> <task_uuid> <target_kanban_group_
   - Insert `task_events` (type `stage_change`)
   - Broadcast update ke semua client WS yang membuka board tsb (realtime,
     **tanpa polling** dari browser — browser cukup subscribe WS sekali).
-- Jika kanban group tujuan punya `instruction` baru, instruksi tsb otomatis
+- Jika kanban group tujuan punya `instruction` baru, instruksi tsb seharusnya
   di-*append* sebagai pesan lanjutan ke pty task yang sama (tetap 1 session
   CLI, tidak membuka proses baru) — sehingga agent langsung tahu instruksi
-  tahap berikutnya tanpa harus di-*restart*.
+  tahap berikutnya tanpa harus di-*restart*. **Catatan**: fungsi
+  `sendFollowupInstruction()` di `task-runner.js` sudah diimplementasi tapi
+  belum dipanggil dari IPC handler (`ipc-socket.js`) maupun route manapun.
+  Saat ini, instruksi tahap baru hanya dikirim saat agent AI memanggil
+  `ai-commander-cli update ...` (agent sendiri yang melanjutkan berdasarkan
+  instruksi awal yang dikirim di awal session).
 - Proses ini berulang otomatis hingga task mencapai kolom `DONE`, kecuali
   ada tahap yang secara eksplisit ditandai *manual* di instruksinya.
 
@@ -434,15 +464,36 @@ ai-commander-cli create <project_group_uuid|-> <detail> [ai_provider]
 
 - Setting → `Use Grouping Project? yes/no` disimpan di tabel `settings`.
 - **Jika yes**: user mendefinisikan banyak `project_groups` (nama alias +
-  `repo_path`). Semua `kanban_groups` yang dibuat lewat Setting akan
-  meminta memilih `project_group_id` tertentu. Kanban board di halaman
-  utama menyediakan dropdown "Change Project Group" untuk berpindah
-  konteks papan kanban antar repo.
+  daftar path). Tiap project group memiliki:
+  - **`use_alias_mapping`**: `0` = mode sederhana (1 path), `1` = mode alias
+    mapping (banyak path per project group).
+  - **`project_alias_mappings`**: tabel terpisah yang menyimpan mapping
+    `alias` → `path` untuk tiap project group. Setiap alias bisa ditandai
+    sebagai **Working Directory** (`is_working_directory = 1`) yang
+    digunakan sebagai `cwd` saat spawn PTY task.
+  - Semua `kanban_groups` yang dibuat lewat Setting akan meminta memilih
+    `project_group_id` tertentu. Kanban board di halaman utama menyediakan
+    dropdown "Change Project Group" untuk berpindah konteks papan kanban
+    antar repo.
 - **Jika no**: `kanban_groups.project_group_id = NULL` untuk semua kanban
   group, hanya ada 1 papan kanban global, task tidak terikat repo tertentu
   secara eksplisit lewat sistem ini (path kerja bisa diisi manual per task
   jika diperlukan, di luar cakupan tahap 1 — dicatat sebagai catatan open
   di TASKS.md).
+
+**Working Directory**: Saat task di-start, cwd PTY ditentukan oleh:
+1. Jika ada `project_alias_mappings` dengan `is_working_directory = 1` untuk
+   project group tsb → gunakan `path` dari alias tsb.
+2. Jika tidak ada → fallback ke `os.homedir()`.
+3. Jika tidak ada project group → gunakan `process.cwd()` (folder tempat
+   `ai-commander` dijalankan).
+
+**Default kanban groups per project group**: Ketika user membuat project group
+baru lewat UI, server otomatis membuat **3 kanban groups** default untuk
+project group tsb (berbeda dari 5 group global):
+- `TO-DO` (locked_todo) → `ON PROGRESS` (locked_delete) → `DONE` (locked_done)
+- User bisa menambahkan `NEED REVIEW`, `COMMIT`, atau group lainnya secara
+  manual lewat halaman Setting.
 
 ---
 
@@ -520,16 +571,24 @@ Karena seluruh operasi CLI dijalankan tanpa konfirmasi manual, ai-commander
 
 Karena PTY processes disimpan di **in-memory Map** (bukan persistent), saat
 server restart semua task yang sedang `running` akan kehilangan PTY-nya
-(orphaned). Modul `recovery.js` menangani ini:
+(orphaned). Mekanisme recovery ditangani di **inline function** dalam
+`bin/server.js`:
 
 1. Saat startup, server query semua task dengan `session_status = 'running'`.
-2. Untuk setiap orphaned task:
+2. Untuk setiap orphaned task (dalam satu transaction):
    - Update `session_status` menjadi `'interrupted'`
    - Set `session_pid = NULL`
    - Insert `task_events` (type `error`) dengan pesan: *"Server direstart,
      session sebelumnya terputus. Silakan mulai ulang task ini secara manual."*
 3. User dapat melihat task interrupted di UI dan memulai ulang secara manual
    (klik Start).
+
+**Catatan**: Modul `src/core/recovery.js` berisi implementasi serupa tapi
+**tidak digunakan** (dead code) — `bin/server.js` tidak meng-import modul
+ini. Perbedaan: versi inline di `bin/server.js` menggunakan transaction dan
+juga membersihkan `session_pid = NULL`, sedangkan versi modul tidak melakukan
+keduanya. Idealnya modul `recovery.js` yang digunakan agar recovery logic
+terpusat dan mudah diuji.
 
 **Tidak ada auto-resume** PTY process — ini disengaja karena:
 - PTY state (scroll buffer, environment) tidak bisa dipulihkan secara

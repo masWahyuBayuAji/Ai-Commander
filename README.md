@@ -60,7 +60,7 @@ Setelah dijalankan, ai-commander akan:
 1. Menginisialisasi database SQLite lokal (`~/.ai-commander/data.db`)
 2. Menjalankan recovery task orphaned jika ada sesi sebelumnya yang terputus
 3. Menjalankan local web server (default: `http://localhost:4321`)
-4. Menjalankan unix socket IPC (`~/.ai-commander/ipc.sock`)
+4. Menjalankan unix socket IPC (`~/.ai-commander/ipc.sock`) & menulis info server ke `~/.ai-commander/server.json`
 5. Membuka dashboard di browser secara otomatis
 
 Untuk menjalankan tanpa auto-open browser:
@@ -121,7 +121,7 @@ Task baru langsung muncul di kolom `TO-DO` secara realtime.
 ## Keterbatasan Tahap 1
 
 - **PTY in-memory**: proses PTY yang sedang berjalan hanya tersimpan di memori server. Jika server di-restart, task yang sedang `running` akan ditandai `interrupted` dan perlu dimulai ulang secara manual.
-- **Single workspace**: jika `Use Grouping Project = no`, cwd default pty adalah folder tempat `ai-commander` dijalankan. Belum ada input path manual per task.
+- **Single workspace**: jika `Use Grouping Project = no`, cwd default pty adalah folder tempat `ai-commander` dijalankan. Jika `Use Grouping Project = yes`, user bisa memilih Working Directory per project group (dari daftar alias mapping) sebagai cwd PTY — tapi belum ada input path manual per task secara individual.
 - **No HTTPS**: server hanya mendukung HTTP (localhost only, bukan untuk deployment publik).
 - **Open Questions**: beberapa detail perlu dikonfirmasi — lihat bagian Open Questions di `TASKS.md`.
 
