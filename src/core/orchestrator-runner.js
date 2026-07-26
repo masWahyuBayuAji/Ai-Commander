@@ -31,9 +31,18 @@ function start(providerName, options) {
   const resolvedCwd = cwd || process.cwd();
   const systemPrompt = buildOrchestratorPrompt();
 
-  // For opencode: write orchestrator agent file
+  // For opencode: cleanup stale agent files from ALL project groups, then write new one
   let agentName = null;
   if (providerName === 'opencode') {
+    // Cleanup stale orchestrator agent files in the resolved cwd
+    const allPgsForCleanup = projectGroupRepo.list();
+    for (const pg of allPgsForCleanup) {
+      opencodeAgentFile.deleteOrchestratorAgentFile({
+        cwd: resolvedCwd,
+        projectGroupName: pg.name,
+      });
+    }
+
     let projectGroupName = 'default';
     if (projectGroupId) {
       const pg = projectGroupRepo.getById(projectGroupId);
@@ -42,9 +51,8 @@ function start(providerName, options) {
       }
     } else {
       // Use first project group name or 'default'
-      const allPgs = projectGroupRepo.list();
-      if (allPgs.length > 0) {
-        projectGroupName = allPgs[0].name;
+      if (allPgsForCleanup.length > 0) {
+        projectGroupName = allPgsForCleanup[0].name;
       }
     }
     agentName = opencodeAgentFile.getOrchestratorAgentName(projectGroupName);
@@ -117,12 +125,9 @@ function start(providerName, options) {
  */
 function cleanupOrchestratorAgentFile() {
   if (currentProvider === 'opencode' && orchestratorCwd) {
-    // Try to find and delete the agent file
+    // Cleanup ALL orchestrator agent files in the cwd
     const allPgs = projectGroupRepo.list();
-    const pgs = orchestratorProjectGroupId
-      ? allPgs.filter(pg => pg.id === orchestratorProjectGroupId)
-      : allPgs.length > 0 ? [allPgs[0]] : [];
-    for (const pg of pgs) {
+    for (const pg of allPgs) {
       opencodeAgentFile.deleteOrchestratorAgentFile({
         cwd: orchestratorCwd,
         projectGroupName: pg.name,

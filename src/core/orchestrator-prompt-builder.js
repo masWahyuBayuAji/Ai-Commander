@@ -1,11 +1,12 @@
 const kanbanGroupRepo = require('../db/repositories/kanbanGroup.repo');
 const projectGroupRepo = require('../db/repositories/projectGroup.repo');
+const projectAliasMappingRepo = require('../db/repositories/projectAliasMapping.repo');
 
 /**
  * Build the orchestrator system prompt / agent instructions.
  *
  * Contains:
- * - Project alias mapping (name → id)
+ * - Project alias mapping (name → uuid) + project alias mappings (name → path)
  * - Kanban groups per project
  * - All CLI commands: create, update (move task)
  * - Workflow rules
@@ -18,12 +19,16 @@ function buildOrchestratorPrompt(options) {
   const { mode } = options || {};
   const projectGroups = projectGroupRepo.list();
 
-  // ── Project alias mapping ──
+  // ── Project alias mapping (name → uuid + alias mappings name → path) ──
   let projectAliasSection = '';
   if (projectGroups.length > 0) {
-    const aliasLines = projectGroups.map(pg =>
-      `  - ${pg.name} → ${pg.id}`
-    ).join('\n');
+    const aliasLines = projectGroups.map(pg => {
+      const aliases = projectAliasMappingRepo.listByProjectGroup(pg.id);
+      const aliasDetail = aliases.length > 0
+        ? '\n' + aliases.map(a => `      - ${a.name} → ${a.path}`).join('\n')
+        : '';
+      return `  - ${pg.name} → ${pg.id}${aliasDetail}`;
+    }).join('\n');
     projectAliasSection = `=== PROJECT ALIAS MAPPING ===
 Gunakan UUID di bawah untuk <project_group_uuid> pada perintah CLI:
 ${aliasLines}`;

@@ -119,7 +119,7 @@
               </div>
 
               <div id="pgAliasForm" style="display:none; margin-bottom:12px;">
-                <div style="font-size:12px; color:var(--color-text-muted); margin-bottom:8px;">Alias Mappings (name + path):</div>
+                <div style="font-size:12px; color:var(--color-text-muted); margin-bottom:8px;">Alias Mappings (name + path + WD checkbox):</div>
                 <div id="pgAliasRows"></div>
                 <button class="btn btn-ghost btn-sm" id="btnAddAlias" type="button" style="margin-top:8px;">+ Add Alias</button>
               </div>
@@ -221,7 +221,7 @@
     });
   }
 
-  function addAliasRow(name, path) {
+  function addAliasRow(name, path, isWorkingDirectory) {
     var container = document.getElementById('pgAliasRows');
     var row = document.createElement('div');
     row.className = 'pg-alias-row';
@@ -229,9 +229,24 @@
     row.innerHTML =
       '<input type="text" class="pg-alias-name" placeholder="e.g. frontend" value="' + escapeAttr(name) + '" style="flex:1; background:var(--color-bg); border:1px solid var(--color-border); color:var(--color-text); padding:6px 10px; border-radius:var(--radius); font-size:12px;">' +
       '<input type="text" class="pg-alias-path" placeholder="/path/to/project" value="' + escapeAttr(path) + '" style="flex:2; background:var(--color-bg); border:1px solid var(--color-border); color:var(--color-text); padding:6px 10px; border-radius:var(--radius); font-size:12px; font-family:monospace;">' +
+      '<label class="pg-alias-wd-label" style="display:flex; align-items:center; gap:4px; white-space:nowrap; font-size:11px; color:var(--color-text-muted); cursor:pointer;" title="Jadikan working directory">' +
+        '<input type="checkbox" class="pg-alias-wd" ' + (isWorkingDirectory ? 'checked' : '') + ' style="cursor:pointer;">' +
+        'WD' +
+      '</label>' +
       '<button class="btn btn-danger btn-sm pg-alias-remove" type="button">&times;</button>';
     row.querySelector('.pg-alias-remove').addEventListener('click', function() {
       row.remove();
+    });
+    row.querySelector('.pg-alias-wd').addEventListener('change', function() {
+      if (this.checked) {
+        var rows = container.querySelectorAll('.pg-alias-row');
+        rows.forEach(function(r) {
+          if (r !== row) {
+            var cb = r.querySelector('.pg-alias-wd');
+            if (cb) cb.checked = false;
+          }
+        });
+      }
     });
     container.appendChild(row);
   }
@@ -279,9 +294,14 @@
           var aliasRows = pg.aliases || [];
           var aliasRowsHtml = '';
           aliasRows.forEach(function(a) {
+            var wdChecked = a.is_working_directory === 1 ? 'checked' : '';
             aliasRowsHtml += '<div class="pg-alias-row" style="display:flex; gap:8px; margin-bottom:8px; align-items:center;">' +
               '<input type="text" class="pg-alias-name" value="' + escapeAttr(a.name) + '" placeholder="e.g. frontend" style="flex:1; background:var(--color-bg); border:1px solid var(--color-border); color:var(--color-text); padding:6px 10px; border-radius:var(--radius); font-size:12px;">' +
               '<input type="text" class="pg-alias-path" value="' + escapeAttr(a.path) + '" placeholder="/path/to/project" style="flex:2; background:var(--color-bg); border:1px solid var(--color-border); color:var(--color-text); padding:6px 10px; border-radius:var(--radius); font-size:12px; font-family:monospace;">' +
+              '<label class="pg-alias-wd-label" style="display:flex; align-items:center; gap:4px; white-space:nowrap; font-size:11px; color:var(--color-text-muted); cursor:pointer;" title="Jadikan working directory">' +
+                '<input type="checkbox" class="pg-alias-wd" data-id="' + a.id + '" ' + wdChecked + ' style="cursor:pointer;">' +
+                'WD' +
+              '</label>' +
               '<button class="btn btn-danger btn-sm pg-alias-remove" type="button" onclick="this.parentElement.remove()">&times;</button>' +
             '</div>';
           });
@@ -308,7 +328,7 @@
           '</div>';
 
           var aliasFormHtml = '<div id="pgDetailAliasForm_' + pg.id + '" style="' + (useAlias ? '' : 'display:none;') + '">' +
-            '<div style="font-size:12px; color:var(--color-text-muted); margin-bottom:4px;">Alias Mappings:</div>' +
+            '<div style="font-size:12px; color:var(--color-text-muted); margin-bottom:4px;">Alias Mappings (name + path + WD checkbox):</div>' +
             '<div id="pgDetailAliasRows_' + pg.id + '">' + aliasRowsHtml + '</div>' +
             '<button class="btn btn-ghost btn-sm" onclick="SettingsPage.addDetailAliasRow(\'' + pg.id + '\')" style="margin-top:8px;">+ Add Alias</button>' +
           '</div>';
@@ -360,8 +380,9 @@
       aliasRows.forEach(function(row) {
         var aName = row.querySelector('.pg-alias-name').value.trim();
         var aPath = row.querySelector('.pg-alias-path').value.trim();
+        var aWd = row.querySelector('.pg-alias-wd').checked;
         if (aName && aPath) {
-          aliases.push({ name: aName, path: aPath });
+          aliases.push({ name: aName, path: aPath, isWorkingDirectory: aWd });
         }
       });
       if (aliases.length === 0) {
@@ -432,7 +453,7 @@
 
     if (useAlias && pg.aliases && pg.aliases.length > 0) {
       pg.aliases.forEach(function(a) {
-        addAliasRow(a.name, a.path);
+        addAliasRow(a.name, a.path, a.is_working_directory === 1);
       });
     } else if (!useAlias) {
       var simplePath = getDefaultAliasPathForGroup(pg);
@@ -469,7 +490,22 @@
     row.innerHTML =
       '<input type="text" class="pg-alias-name" placeholder="e.g. frontend" value="" style="flex:1; background:var(--color-bg); border:1px solid var(--color-border); color:var(--color-text); padding:6px 10px; border-radius:var(--radius); font-size:12px;">' +
       '<input type="text" class="pg-alias-path" placeholder="/path/to/project" value="" style="flex:2; background:var(--color-bg); border:1px solid var(--color-border); color:var(--color-text); padding:6px 10px; border-radius:var(--radius); font-size:12px; font-family:monospace;">' +
+      '<label class="pg-alias-wd-label" style="display:flex; align-items:center; gap:4px; white-space:nowrap; font-size:11px; color:var(--color-text-muted); cursor:pointer;" title="Jadikan working directory">' +
+        '<input type="checkbox" class="pg-alias-wd" style="cursor:pointer;">' +
+        'WD' +
+      '</label>' +
       '<button class="btn btn-danger btn-sm pg-alias-remove" type="button" onclick="this.parentElement.remove()">&times;</button>';
+    row.querySelector('.pg-alias-wd').addEventListener('change', function() {
+      if (this.checked) {
+        var rows = container.querySelectorAll('.pg-alias-row');
+        rows.forEach(function(r) {
+          if (r !== row) {
+            var cb = r.querySelector('.pg-alias-wd');
+            if (cb) cb.checked = false;
+          }
+        });
+      }
+    });
     container.appendChild(row);
   }
 
@@ -504,8 +540,9 @@
       aliasRows.forEach(function(row) {
         var aName = row.querySelector('.pg-alias-name').value.trim();
         var aPath = row.querySelector('.pg-alias-path').value.trim();
+        var aWd = row.querySelector('.pg-alias-wd').checked;
         if (aName && aPath) {
-          aliases.push({ name: aName, path: aPath });
+          aliases.push({ name: aName, path: aPath, isWorkingDirectory: aWd });
         }
       });
       if (aliases.length === 0) {

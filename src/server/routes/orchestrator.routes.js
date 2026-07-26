@@ -11,21 +11,17 @@ router.post('/api/orchestrator/start', (req, res, { body }) => {
   const provider = (body && body.provider) || 'claude-code';
   const projectGroupId = (body && body.projectGroupId) || null;
 
-  // Resolve cwd: use project group's alias mapping, or default to process.cwd()
+  // Resolve cwd: is_working_directory → default → first alias → user home
   let cwd = null;
   if (projectGroupId) {
-    const pg = projectGroupRepo.getById(projectGroupId);
-    if (pg) {
-      const aliasPath = projectAliasMappingRepo.getDefaultPath(pg.id);
-      cwd = aliasPath || process.cwd();
-    }
+    cwd = projectAliasMappingRepo.getWorkingDirectoryPath(projectGroupId);
   }
   if (!cwd) {
-    // fallback: use first project group with alias, or process.cwd()
+    // fallback: use first project group with working directory
     const allPgs = projectGroupRepo.list();
     for (const p of allPgs) {
-      const aliasPath = projectAliasMappingRepo.getDefaultPath(p.id);
-      if (aliasPath) { cwd = aliasPath; break; }
+      const wdPath = projectAliasMappingRepo.getWorkingDirectoryPath(p.id);
+      if (wdPath) { cwd = wdPath; break; }
     }
     if (!cwd) cwd = process.cwd();
   }

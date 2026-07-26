@@ -36,14 +36,23 @@ router.post('/api/project-groups', (req, res, { body }) => {
 
   // Create alias mappings
   if (useAliasMapping && body.aliases && Array.isArray(body.aliases)) {
+    let workingDirAliasId = null;
     for (const alias of body.aliases) {
       if (alias.name && alias.path) {
-        projectAliasMappingRepo.create({
+        const created = projectAliasMappingRepo.create({
           projectGroupId: group.id,
           name: alias.name,
           path: alias.path,
+          isWorkingDirectory: alias.isWorkingDirectory ? 1 : 0,
         });
+        if (alias.isWorkingDirectory) {
+          workingDirAliasId = created.id;
+        }
       }
+    }
+    // Enforce radio-like: only one is_working_directory per group
+    if (workingDirAliasId) {
+      projectAliasMappingRepo.setWorkingDirectory(group.id, workingDirAliasId);
     }
   } else if (!useAliasMapping && body.path) {
     // Auto-create default alias when not using alias mapping
@@ -94,14 +103,25 @@ router.put('/api/project-groups/:id', (req, res, { params, body }) => {
   projectAliasMappingRepo.deleteByProjectGroup(params.id);
 
   if (useAliasMapping && body.aliases && Array.isArray(body.aliases)) {
+    let workingDirAliasId = null;
     for (const alias of body.aliases) {
       if (alias.name && alias.path) {
-        projectAliasMappingRepo.create({
+        const created = projectAliasMappingRepo.create({
           projectGroupId: params.id,
           name: alias.name,
           path: alias.path,
+          isWorkingDirectory: alias.isWorkingDirectory ? 1 : 0,
         });
+        if (alias.isWorkingDirectory) {
+          workingDirAliasId = created.id;
+        }
       }
+    }
+    // Enforce radio-like: only one is_working_directory per group
+    if (workingDirAliasId) {
+      projectAliasMappingRepo.setWorkingDirectory(params.id, workingDirAliasId);
+    } else {
+      projectAliasMappingRepo.clearWorkingDirectory(params.id);
     }
   } else if (!useAliasMapping && body.path) {
     projectAliasMappingRepo.create({

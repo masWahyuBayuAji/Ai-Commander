@@ -59,11 +59,10 @@ async function startTask(taskId) {
   // Get provider adapter
   const adapter = getAdapter(task.ai_provider);
 
-  // Determine working directory (prefer alias mapping)
+  // Determine working directory: is_working_directory → default → first alias → home
   let cwd = process.cwd();
   if (projectGroup) {
-    const aliasPath = projectAliasMappingRepo.getDefaultPath(projectGroup.id);
-    cwd = aliasPath || process.cwd();
+    cwd = projectAliasMappingRepo.getWorkingDirectoryPath(projectGroup.id);
   }
 
   // Untuk opencode: generate & tulis custom agent file per-task (pengganti --system)
