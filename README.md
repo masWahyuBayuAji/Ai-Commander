@@ -34,6 +34,7 @@ Setelah mencoba beberapa tools kanban/orchestrator AI yang ada, ditemukan dua ma
 - 🖥️ **Task Progress View**: slide-in panel di sisi kiri layar dengan live terminal view dari session AI yang sedang berjalan
 - 🧭 **Orchestrator Terminal**: slide-in panel di sisi kanan layar untuk membuat task/list task secara otomatis
 - 📊 **Dashboard realtime**: total token usage (dalam K) & total task selesai per Project Group
+- 🗂️ **Project Alias Mapping card**: menampilkan informasi alias mapping (name, path, working directory) untuk project group yang aktif
 - 🗑️ **Soft-delete task**: task yang dihapus disimpan (bukan dihapus permanen), bisa dikembalikan ke `TO-DO`
 - 🤖 Dukungan provider: **Claude Code** & **OpenCode** (via CLI, bypass permission)
 - 📖 **Auto-read project rules**: jika working directory adalah home directory, AI otomatis membaca `AGENTS.md`/`CLAUDE.md` dari setiap path project sebelum memulai pekerjaan

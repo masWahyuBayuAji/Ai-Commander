@@ -83,6 +83,7 @@ ai-commander/
 │   │       ├── tasks.routes.js
 │   │       ├── deleted-tasks.routes.js
 │   │       ├── dashboard.routes.js
+│   │       ├── project-alias-mappings.routes.js
 │   │       └── orchestrator.routes.js
 │   ├── db/
 │   │   ├── connection.js      # inisialisasi better-sqlite3 + migration runner
@@ -129,6 +130,7 @@ ai-commander/
 │       ├── list-view.js
 │       ├── settings.js
 │       ├── dashboard.js
+│       ├── project-alias-mapping.js
 │       ├── task-progress.js     # xterm.js terminal renderer utk stream pty
 │       ├── orchestrator.js      # xterm.js terminal renderer utk orchestrator
 │       ├── deleted-task.js
@@ -290,6 +292,7 @@ bersama path unix socket, dibaca oleh `ai-commander-cli`).
 | GET    | `/api/tasks/deleted`                             | List task ter-soft-delete                     |
 | GET    | `/api/tasks/:id/events`                          | Ambil log events task utk Task Progress View  |
 | GET    | `/api/dashboard/summary`                         | Total token usage (K) + total done per group  |
+| GET    | `/api/project-alias-mappings?project_group_id=` | List alias mappings untuk project group       |
 | WS     | `/ws`                                          | WebSocket endpoint — client kirim `{ subscribe: "channel" }` untuk join channel |
 |        | → channel `board`                              | Broadcast update kanban (task_updated, token_usage) |
 |        | → channel `task:<id>`                          | Stream live terminal output + exit event per task |
