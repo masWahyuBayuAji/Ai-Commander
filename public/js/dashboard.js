@@ -48,8 +48,9 @@
     loadDashboard();
 
     if (window.WsClient) {
-      WsClient.connect('board', function(data) {
-        if (data.type === 'task_updated' || data.type === 'task_created' || data.type === 'task_deleted') {
+      WsClient.connect('board', function(msg) {
+        var evt = msg && msg.data;
+        if (evt && (evt.type === 'task_updated' || evt.type === 'task_created' || evt.type === 'task_deleted')) {
           loadDashboard();
         }
       });

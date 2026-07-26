@@ -315,14 +315,17 @@ bersama path unix socket, dibaca oleh `ai-commander-cli`).
    tersebut (atau global jika null), diurutkan sesuai `position`.
 2. Server membangun **instruksi workflow** (berbeda per provider):
    - **Claude Code**: `prompt-builder.js` menghasilkan prompt lengkap berisi
-     `project_group_uuid`, `task_uuid`, daftar kanban group beserta
-     `slash_command`, `next_step_group_id`, `instruction`, dan perintah
-     eksplisit untuk menjalankan `ai-commander-cli update ...`. Prompt ini
+     `project_group_uuid`, `task_uuid`, `next_step_group_id` (UUID target
+     langsung dari kanban group saat ini), `done_group_id`, daftar kanban
+     group beserta `slash_command`, `next_step_group_id`, `instruction`,
+     dan perintah eksplisit untuk menjalankan `ai-commander-cli update ...`
+     dengan UUID target yang sudah terisi (bukan placeholder). Prompt ini
      dikirim langsung sebagai input pertama ke pty.
    - **OpenCode**: Karena OpenCode tidak mendukung flag `--system`, konteks
      kanban ditulis ke **custom agent file** (`.opencode/agent/aic-task-<id>.md`)
      oleh `opencode-agent-file.js`. File ini berisi instruksi workflow yang sama
-     dengan prompt Claude Code. Task detail dari user dikirim langsung sebagai
+     dengan prompt Claude Code, termasuk `next_step_group_id` yang sudah terisi
+     langsung. Task detail dari user dikirim langsung sebagai
      prompt ke `opencode run --auto --agent <agent_name> "detail"`.
      File agent dihapus otomatis saat task selesai (masuk DONE).
 3. Server memindahkan task dari `TO-DO` ke `next_step_group_id` milik
@@ -356,6 +359,7 @@ ai-commander-cli update <project_group_uuid|-> <task_uuid> <target_kanban_group_
   - Insert `task_events` (type `stage_change`)
   - Broadcast update ke semua client WS yang membuka board tsb (realtime,
     **tanpa polling** dari browser — browser cukup subscribe WS sekali).
+    Struktur pesa WS: `{ channel: 'board', data: { type: 'task_updated', data: <task> } }`.
 - Jika kanban group tujuan punya `instruction` baru, instruksi tsb seharusnya
   di-*append* sebagai pesan lanjutan ke pty task yang sama (tetap 1 session
   CLI, tidak membuka proses baru) — sehingga agent langsung tahu instruksi

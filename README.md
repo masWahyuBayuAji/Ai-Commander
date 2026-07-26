@@ -90,15 +90,21 @@ NO_BROWSER=1 npx ai-commander
    - Task card mendapat border hijau dengan label "Running"
    - Tombol Start berubah menjadi disabled "Running"
    - ai-commander membuka 1 session CLI (Claude Code/OpenCode) dengan bypass permission
-   - UUID Project Group
-   - UUID Task (pendek)
-   - Daftar kanban group + urutan "next step move to" + instruksi tiap tahap
+   - Agent menerima instruksi workflow berisi:
+     - UUID Project Group
+     - UUID Task (pendek)
+     - **Next Step Group ID** (UUID target langsung, bukan placeholder)
+     - DONE Group ID
+     - Daftar kanban group + urutan "next step move to" + instruksi tiap tahap
 5. Task otomatis dipindah ke tahap berikutnya (default: `ON PROGRESS`).
-6. Agent bekerja, dan ketika merasa sudah mencapai suatu checkpoint tahap, agent sendiri yang memanggil:
+6. Agent bekerja, dan ketika pekerjaan selesai, agent WAJIB memanggil:
    ```bash
-   ai-commander-cli update <project_group_uuid> <task_uuid> <target_kanban_group_uuid>
+   ai-commander-cli update <project_group_uuid> <task_uuid> <next_step_group_id>
    ```
-7. UI kanban ter-update secara realtime, dashboard token usage ikut ter-update.
+   Instruksi sudah terisi langsung dengan UUID target (bukan placeholder), sehingga
+   agent tidak perlu menebak. Tanpa menjalankan perintah ini, task akan tetap
+   terjebak di tahap saat ini.
+7. UI kanban ter-update secara realtime tanpa perlu reload, dashboard token usage ikut ter-update.
 8. Klik "View" pada task card untuk membuka **slide-in panel** di sisi kiri layar yang menampilkan live terminal output dari task yang sedang berjalan.
 9. Task terus berjalan otomatis melewati tahap-tahap kanban (`NEED REVIEW` → `COMMIT` → `DONE`) sesuai instruksi masing-masing tahap, kecuali ada tahap yang sengaja ditandai untuk dijalankan manual.
 

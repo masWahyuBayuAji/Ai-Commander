@@ -57,13 +57,23 @@ ${aliasLines}`;
   const todoGroup = kanbanGroups.find(kg => kg.is_locked_todo === 1);
   const todoGroupId = todoGroup ? todoGroup.id : 'null';
 
+  // Find the DONE kanban group (is_locked_done = 1)
+  const doneGroup = kanbanGroups.find(kg => kg.is_locked_done === 1);
+  const doneGroupId = doneGroup ? doneGroup.id : 'null';
+
+  // Find the current kanban group's next_step_group_id
+  const currentGroup = kanbanGroups.find(kg => kg.id === task.kanban_group_id);
+  const nextStepGroupId = currentGroup && currentGroup.next_step_group_id ? currentGroup.next_step_group_id : doneGroupId;
+
   // Build the prompt
   const prompt = `=== AI COMMANDER TASK CONTEXT ===
 
 Project Group UUID: ${projectGroupUuid}${aliasMappingsSection}
 Task UUID: ${taskUuid}
 Current Kanban Group ID: ${task.kanban_group_id}
+Next Step Group ID (gunakan ini untuk berpindah): ${nextStepGroupId}
 TO-DO Kanban Group ID: ${todoGroupId}
+DONE Kanban Group ID: ${doneGroupId}
 
 === KANBAN GROUPS ===
 Berikut adalah daftar seluruh kanban group yang tersedia:
@@ -72,16 +82,15 @@ ${kanbanGroupsList}
 === INSTRUKSI WORKFLOW ===
 1. Kamu sedang mengerjakan task dengan UUID: ${taskUuid}
 2. Task ini berada di project group: ${projectGroupUuid}
-3. Untuk berpindah ke tahap berikutnya, jalankan perintah berikut di terminal:
-   
-   ai-commander-cli update ${projectGroupUuid} ${taskUuid} <target_kanban_group_id>
-   
-   Ganti <target_kanban_group_id> dengan UUID kanban group tujuan.
+3. Ketika pekerjaan pada tahap ini sudah SELESAI, kamu WAJIB berpindah ke tahap
+   berikutnya dengan menjalankan perintah berikut di terminal:
 
-4. Kamu HARUS memanggil ai-commander-cli update secara OTOMATIS ketika merasa
-   pekerjaan pada tahap ini sudah selesai dan siap pindah ke tahap berikutnya.
-5. Jangan menunggu konfirmasi manual dari user untuk berpindah tahap, kecuali
-   instruksi tahap tsb secara eksplisit meminta konfirmasi manual.
+   ai-commander-cli update ${projectGroupUuid} ${taskUuid} ${nextStepGroupId}
+
+4. PENTING: Kamu HARUS selalu menjalankan perintah di atas SETIAP KALI pekerjaan
+   selesai. Jangan pernah melewatkannya. Tanpa perintah ini, task akan tetap
+   terjebak di tahap ini dan tidak akan pernah pindah ke DONE.
+5. Jangan menunggu konfirmasi manual dari user untuk berpindah tahap.
 6. Ikuti instruksi khusus yang ada di kanban group saat ini jika ada.
 
 === TASK DETAIL ===
@@ -129,12 +138,22 @@ ${aliasLines}`;
   const todoGroup = kanbanGroups.find(kg => kg.is_locked_todo === 1);
   const todoGroupId = todoGroup ? todoGroup.id : 'null';
 
+  // Find the DONE kanban group (is_locked_done = 1)
+  const doneGroup = kanbanGroups.find(kg => kg.is_locked_done === 1);
+  const doneGroupId = doneGroup ? doneGroup.id : 'null';
+
+  // Find the current kanban group's next_step_group_id
+  const currentGroup = kanbanGroups.find(kg => kg.id === task.kanban_group_id);
+  const nextStepGroupId = currentGroup && currentGroup.next_step_group_id ? currentGroup.next_step_group_id : doneGroupId;
+
   return `=== AI COMMANDER TASK CONTEXT ===
 
 Project Group UUID: ${projectGroupUuid}${aliasMappingsSection}
 Task UUID: ${taskUuid}
 Current Kanban Group ID: ${task.kanban_group_id}
+Next Step Group ID (gunakan ini untuk berpindah): ${nextStepGroupId}
 TO-DO Kanban Group ID: ${todoGroupId}
+DONE Kanban Group ID: ${doneGroupId}
 
 === KANBAN GROUPS ===
 Berikut adalah daftar seluruh kanban group yang tersedia:
@@ -143,16 +162,15 @@ ${kanbanGroupsList}
 === INSTRUKSI WORKFLOW ===
 1. Kamu sedang mengerjakan task dengan UUID: ${taskUuid}
 2. Task ini berada di project group: ${projectGroupUuid}
-3. Untuk berpindah ke tahap berikutnya, jalankan perintah berikut di terminal:
+3. Ketika pekerjaan pada tahap ini sudah SELESAI, kamu WAJIB berpindah ke tahap
+   berikutnya dengan menjalankan perintah berikut di terminal:
 
-   ai-commander-cli update ${projectGroupUuid} ${taskUuid} <target_kanban_group_id>
+   ai-commander-cli update ${projectGroupUuid} ${taskUuid} ${nextStepGroupId}
 
-   Ganti <target_kanban_group_id> dengan UUID kanban group tujuan.
-
-4. Kamu HARUS memanggil ai-commander-cli update secara OTOMATIS ketika merasa
-   pekerjaan pada tahap ini sudah selesai dan siap pindah ke tahap berikutnya.
-5. Jangan menunggu konfirmasi manual dari user untuk berpindah tahap, kecuali
-   instruksi tahap tsb secara eksplisit meminta konfirmasi manual.
+4. PENTING: Kamu HARUS selalu menjalankan perintah di atas SETIAP KALI pekerjaan
+   selesai. Jangan pernah melewatkannya. Tanpa perintah ini, task akan tetap
+   terjebak di tahap ini dan tidak akan pernah pindah ke DONE.
+5. Jangan menunggu konfirmasi manual dari user untuk berpindah tahap.
 6. Ikuti instruksi khusus yang ada di kanban group saat ini jika ada.`;
 }
 

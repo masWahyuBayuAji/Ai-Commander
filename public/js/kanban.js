@@ -315,8 +315,9 @@
     });
 
     if (window.WsClient) {
-      WsClient.connect('board', function(data) {
-        if (data.type && data.type.startsWith('task_')) {
+      WsClient.connect('board', function(msg) {
+        var evt = msg && msg.data;
+        if (evt && evt.type && evt.type.startsWith('task_')) {
           loadBoard();
         }
       });
