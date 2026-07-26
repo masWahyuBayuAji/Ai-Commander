@@ -3,7 +3,8 @@ const taskRepo = require('../../db/repositories/task.repo');
 const kanbanGroupRepo = require('../../db/repositories/kanbanGroup.repo');
 const wsServer = require('../ws-server');
 const { validateAndTransition } = require('../../core/kanban-state-machine');
-const taskRunner = require('../../core/task-runner');
+const { triggerNextTask } = require('../../core/trigger-next-task');
+const db = require('../../db/connection');
 
 // GET /api/tasks - List tasks
 router.get('/api/tasks', (req, res, { query }) => {
@@ -122,16 +123,51 @@ router.post('/api/tasks/:id/transition', (req, res, { params, body }) => {
 
   wsServer.broadcast('board', { type: 'task_updated', data: result.task });
 
+  const targetGroup = kanbanGroupRepo.getById(body.targetKanbanGroupId);
+  if (targetGroup && targetGroup.is_locked_done === 1 && result.task.next_run_task_id) {
+    triggerNextTask(result.task.next_run_task_id).catch(function(err) {
+      console.error('[Transition] Error triggering next task:', err);
+    });
+  }
+
   res.writeHead(200, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({ ok: true, data: result.task }));
 });
 
+// PUT /api/tasks/:id/next-run - Set or clear next_run_task_id
+router.put('/api/tasks/:id/next-run', (req, res, { params, body }) => {
+  const existing = taskRepo.getById(params.id);
+  if (!existing) {
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Task not found' }));
+    return;
+  }
+
+  const nextRunTaskId = body && body.nextRunTaskId ? body.nextRunTaskId : null;
+
+  if (nextRunTaskId) {
+    const targetTask = taskRepo.getById(nextRunTaskId);
+    if (!targetTask) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Target task not found' }));
+      return;
+    }
+    if (nextRunTaskId === params.id) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Task cannot point to itself' }));
+      return;
+    }
+  }
+
+  const updated = taskRepo.update(params.id, { next_run_task_id: nextRunTaskId });
+
+  wsServer.broadcast('board', { type: 'task_updated', data: updated });
+
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ ok: true, data: updated }));
+});
+
 // POST /api/tasks/:id/start - Start task execution
-// Based on ARCHITECTURE.md §6.1:
-// 1. Move task from TO-DO to next_step_group_id of TO-DO (default: ON PROGRESS)
-// 2. Broadcast board event
-// 3. Call taskRunner.startTask(taskId) asynchronously
-// 4. Return response immediately without waiting for task to finish
 router.post('/api/tasks/:id/start', async (req, res, { params }) => {
   const task = taskRepo.getById(params.id);
   if (!task) {
@@ -184,6 +220,7 @@ router.post('/api/tasks/:id/start', async (req, res, { params }) => {
   wsServer.broadcast('board', { type: 'task_updated', data: transitionResult.task });
 
   // Start task asynchronously (don't wait for completion)
+  const taskRunner = require('../../core/task-runner');
   taskRunner.startTask(params.id).catch(err => {
     console.error(`[TaskRunner] Error starting task ${params.id}:`, err);
   });
@@ -205,6 +242,26 @@ router.get('/api/tasks/:id/events', (req, res, { params }) => {
   const events = taskRepo.getEventsByTaskId(params.id);
   res.writeHead(200, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({ data: events }));
+});
+
+// GET /api/tasks/debug/next-run - Debug endpoint to check next_run_task_id column
+router.get('/api/tasks/debug/next-run', (req, res) => {
+  try {
+    const columns = db.prepare("PRAGMA table_info(tasks)").all();
+    const hasNextRunColumn = columns.some(c => c.name === 'next_run_task_id');
+    const tasks = db.prepare("SELECT id, next_run_task_id FROM tasks WHERE deleted_at IS NULL").all();
+    const todoGroups = db.prepare("SELECT id, name, project_group_id, next_step_group_id, is_locked_todo FROM kanban_groups WHERE is_locked_todo = 1 AND deleted_at IS NULL").all();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      hasNextRunColumn: hasNextRunColumn,
+      columns: columns.map(c => c.name),
+      tasks: tasks,
+      todoGroups: todoGroups,
+    }, null, 2));
+  } catch (err) {
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: err.message }));
+  }
 });
 
 module.exports = router;

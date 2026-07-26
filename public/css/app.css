@@ -993,3 +993,60 @@ body {
   font-size: 13px;
   word-break: break-all;
 }
+
+/* Task Card Header (id + link button) */
+.task-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.task-card-header .task-card-id {
+  margin-bottom: 0;
+}
+
+/* Link button (polygon icon) */
+.task-link-btn {
+  padding: 2px 4px !important;
+  min-width: 24px;
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.5;
+  transition: all 0.2s;
+}
+
+.task-link-btn:hover {
+  opacity: 1;
+  border-color: var(--color-primary) !important;
+  color: var(--color-primary) !important;
+}
+
+.task-card-link-active {
+  border-color: var(--color-info) !important;
+  box-shadow: 0 0 0 2px rgba(21, 101, 192, 0.3) !important;
+}
+
+/* Next run label */
+.task-card-next-run {
+  font-size: 10px;
+  color: var(--color-info);
+  background: rgba(21, 101, 192, 0.08);
+  border: 1px solid rgba(21, 101, 192, 0.2);
+  border-radius: 3px;
+  padding: 2px 6px;
+  margin-bottom: 6px;
+  font-family: monospace;
+  word-break: break-all;
+}
+
+/* Connection lines SVG overlay */
+.kanban-connection-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 10;
+}

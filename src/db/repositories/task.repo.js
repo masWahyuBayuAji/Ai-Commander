@@ -47,7 +47,7 @@ function update(id, fields) {
   const existing = getById(id);
   if (!existing) return null;
 
-  const allowedFields = ['title', 'detail', 'ai_provider', 'session_pid', 'session_status', 'started_at', 'finished_at'];
+  const allowedFields = ['title', 'detail', 'ai_provider', 'session_pid', 'session_status', 'started_at', 'finished_at', 'next_run_task_id'];
   const updates = [];
   const values = [];
 

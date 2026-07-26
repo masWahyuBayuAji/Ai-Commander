@@ -32,9 +32,18 @@ const migrationFiles = fs.readdirSync(MIGRATIONS_DIR)
 for (const file of migrationFiles) {
   if (!applied.includes(file)) {
     const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, file), 'utf8');
-    // Disable foreign keys during migrations (allows DROP TABLE with active references)
     db.pragma('foreign_keys = OFF');
-    db.exec(sql);
+    try {
+      db.exec(sql);
+    } catch (err) {
+      if (err.message && err.message.includes('duplicate column name')) {
+        // Column already exists, skip gracefully
+      } else if (err.message && err.message.includes('already exists')) {
+        // Index or table already exists, skip gracefully
+      } else {
+        throw err;
+      }
+    }
     db.pragma('foreign_keys = ON');
     db.prepare('INSERT INTO _migrations (name, applied_at) VALUES (?, ?)').run(file, new Date().toISOString());
   }

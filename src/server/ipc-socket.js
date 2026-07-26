@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
 const { validateAndTransition } = require('../core/kanban-state-machine');
+const { triggerNextTask } = require('../core/trigger-next-task');
 const taskRepo = require('../db/repositories/task.repo');
 const kanbanGroupRepo = require('../db/repositories/kanbanGroup.repo');
 const wsServer = require('./ws-server');
@@ -96,6 +97,13 @@ function handleTransition(socket, msg) {
     type: 'task_updated',
     data: result.task,
   });
+
+  const targetGroup = kanbanGroupRepo.getById(targetKanbanGroupId);
+  if (targetGroup && targetGroup.is_locked_done === 1 && result.task.next_run_task_id) {
+    triggerNextTask(result.task.next_run_task_id).catch(function(err) {
+      console.error('[IPC Transition] Error triggering next task:', err);
+    });
+  }
 
   socket.write(JSON.stringify({ ok: true }) + '\n');
 }

@@ -91,6 +91,8 @@ function createDefaultsForProjectGroup(projectGroupId) {
     isLockedDelete: 1,
   });
 
+  update(todo.id, { nextStepGroupId: onProgress.id });
+
   return [todo, onProgress, done];
 }
 

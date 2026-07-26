@@ -102,6 +102,7 @@ ai-commander/
 │   │       └── projectAliasMapping.repo.js
 │   ├── core/
 │   │   ├── kanban-state-machine.js   # validasi "next step move to"
+│   │   ├── trigger-next-task.js        # auto-start next task saat DONE (shared by HTTP + IPC)
 │   │   ├── task-runner.js            # spawn pty, kirim prompt awal, capture output
 │   │   ├── orchestrator-runner.js    # pty khusus utk halaman Orchestrator
 │   │   ├── recovery.js               # recover orphaned tasks saat server restart (NOTE: dead code, lihat §13)
@@ -157,7 +158,7 @@ kolom `repo_path` dari `project_groups` dan menambahkan tabel
 **status akhir** setelah seluruh migrasi dijalankan.
 
 ```sql
--- Final schema setelah migration 001-005
+-- Final schema setelah migration 001-007
 
 CREATE TABLE settings (
   key TEXT PRIMARY KEY,
@@ -216,11 +217,13 @@ CREATE TABLE tasks (
   session_status TEXT NOT NULL DEFAULT 'idle', -- idle | running | waiting_manual | finished | error | interrupted
   started_at TEXT NULL,
   finished_at TEXT NULL,
+  next_run_task_id TEXT NULL,          -- FK ke tasks.id (auto-start next task saat DONE)
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   deleted_at TEXT NULL,
   FOREIGN KEY (project_group_id) REFERENCES project_groups(id),
-  FOREIGN KEY (kanban_group_id) REFERENCES kanban_groups(id)
+  FOREIGN KEY (kanban_group_id) REFERENCES kanban_groups(id),
+  FOREIGN KEY (next_run_task_id) REFERENCES tasks(id)
 );
 
 CREATE TABLE task_events (
@@ -245,6 +248,7 @@ CREATE TABLE token_usage (
 CREATE INDEX idx_tasks_kanban_group ON tasks(kanban_group_id);
 CREATE INDEX idx_tasks_project_group ON tasks(project_group_id);
 CREATE INDEX idx_tasks_deleted_at ON tasks(deleted_at);
+CREATE INDEX idx_tasks_next_run_task ON tasks(next_run_task_id);
 CREATE INDEX idx_task_events_task_id ON task_events(task_id);
 ```
 
@@ -290,6 +294,8 @@ bersama path unix socket, dibaca oleh `ai-commander-cli`).
 | DELETE | `/api/tasks/:id`                                 | Soft delete (set deleted_at)                 |
 | POST   | `/api/tasks/:id/restore`                         | Restore ke TO-DO (dari Deleted Task view)     |
 | GET    | `/api/tasks/deleted`                             | List task ter-soft-delete                     |
+| PUT    | `/api/tasks/:id/next-run`                     | Set/clear `next_run_task_id` (link task ke task berikutnya) |
+| GET    | `/api/tasks/debug/next-run`                   | Debug: cek kolom `next_run_task_id` & status TO-DO groups |
 | GET    | `/api/tasks/:id/events`                          | Ambil log events task utk Task Progress View  |
 | GET    | `/api/dashboard/summary`                         | Total token usage (K) + total done per group  |
 | GET    | `/api/project-alias-mappings?project_group_id=` | List alias mappings untuk project group       |
@@ -368,6 +374,11 @@ ai-commander-cli update <project_group_uuid|-> <task_uuid> <target_kanban_group_
   - Broadcast update ke semua client WS yang membuka board tsb (realtime,
     **tanpa polling** dari browser — browser cukup subscribe WS sekali).
     Struktur pesa WS: `{ channel: 'board', data: { type: 'task_updated', data: <task> } }`.
+  - **Next Run auto-trigger**: Jika kanban group tujuan adalah DONE
+    (`is_locked_done = 1`) DAN task punya `next_run_task_id`, server
+    memanggil `triggerNextTask()` (modul `src/core/trigger-next-task.js`)
+    untuk otomatis memulai task berikutnya (session terpisah).
+    Trigger ini juga dipanggil dari HTTP endpoint `POST /api/tasks/:id/transition`.
 - Jika kanban group tujuan punya `instruction` baru, instruksi tsb seharusnya
   di-*append* sebagai pesan lanjutan ke pty task yang sama (tetap 1 session
   CLI, tidak membuka proses baru) — sehingga agent langsung tahu instruksi
@@ -405,6 +416,38 @@ ai-commander-cli create <project_group_uuid|-> <detail> [ai_provider]
   lanjutan ke pty yang sama.
 
 ### 6.4 Saat user membuat task dari Orchestrator
+### 6.5 Next Run — Auto-Trigger Task
+
+Fitur **Next Run** memungkinkan user menghubungkan satu task ke task lainnya,
+sehingga saat task pertama selesai (pindah ke kolom DONE), task berikutnya
+otomatis di-start (dalam session CLI terpisah).
+
+**Cara kerja:**
+
+1. User mengklik **icon polygon** di pojok kanan atas task card (task A).
+2. User mengklik task card tujuan (task B) untuk membuat koneksi.
+3. Server menyimpan `next_run_task_id = <task_b_id>` di tabel `tasks` untuk task A.
+4. Saat task A dipindah ke kolom DONE (baik via UI drag-drop maupun CLI
+   `ai-commander-cli update`), server mendeteksi:
+   - `targetGroup.is_locked_done === 1` (target adalah kolom DONE)
+   - `task.next_run_task_id` tidak kosong
+5. Server memanggil `triggerNextTask(nextTaskId)` yang:
+   - Memvalidasi task berikutnya ada dan masih di kolom TO-DO
+   - Memindahkan task dari TO-DO ke ON PROGRESS (via `validateAndTransition`)
+   - Spawn PTY baru via `taskRunner.startTask()` (session terpisah)
+   - Broadcast update ke semua client WS
+
+**Backend**: `src/core/trigger-next-task.js` — modul terpisah yang di-import
+baik oleh HTTP route (`tasks.routes.js`) maupun IPC socket handler
+(`ipc-socket.js`).
+
+**Frontend**: Task card menampilkan:
+- **Icon polygon** di pojok kanan atas (klik untuk memulai/mengakhiri linking)
+- **Label "next run: {task_id}"** di bawah deskripsi jika task memiliki
+  `next_run_task_id`
+- **SVG bezier connection lines** antar task card yang ter-link (overlay
+  di atas kanban board, di-draw ulang saat resize/scroll)
+
 
 ```
 ai-commander-cli create <project_group_uuid|-> <detail> [ai_provider]
