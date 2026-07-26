@@ -12,6 +12,7 @@ require('./routes/tasks.routes');
 require('./routes/deleted-tasks.routes');
 require('./routes/orchestrator.routes');
 require('./routes/dashboard.routes');
+require('./routes/project-alias-mappings.routes');
 
 const PUBLIC_DIR = path.join(__dirname, '..', '..', 'public');
 const NODE_MODULES_DIR = path.join(__dirname, '..', '..', 'node_modules');

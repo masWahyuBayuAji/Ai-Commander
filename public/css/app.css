@@ -968,3 +968,28 @@ body {
   font-weight: 600;
   margin-bottom: 12px;
 }
+
+/* Badge */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 12px;
+  line-height: 1.5;
+}
+
+.badge-success {
+  background-color: var(--color-success-light, #d4edda);
+  color: var(--color-success-dark, #155724);
+}
+
+/* Path code */
+.path-code {
+  background: var(--color-bg-alt, #f5f5f5);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 13px;
+  word-break: break-all;
+}
