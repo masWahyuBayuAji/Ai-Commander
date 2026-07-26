@@ -4,12 +4,12 @@
     fetch('/api/settings')
       .then(function(res) { return res.json(); })
       .then(function(data) {
-        var theme = (data.data && data.data.color_theme) || 'dark-navy';
+        var theme = (data.data && data.data.color_theme) || 'light-green-white';
         document.body.setAttribute('data-theme', theme);
         localStorage.setItem('color_theme', theme);
       })
       .catch(function() {
-        var theme = localStorage.getItem('color-theme') || 'dark-navy';
+        var theme = localStorage.getItem('color-theme') || 'light-green-white';
         document.body.setAttribute('data-theme', theme);
       });
 

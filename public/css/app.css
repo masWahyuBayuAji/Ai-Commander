@@ -4,28 +4,8 @@
   box-sizing: border-box;
 }
 
-/* === DEFAULT THEME: Dark Navy === */
+/* === DEFAULT THEME: Light Green-White === */
 :root,
-[data-theme="dark-navy"] {
-  --color-bg: #1a1a2e;
-  --color-surface: #16213e;
-  --color-primary: #0f3460;
-  --color-accent: #e94560;
-  --color-text: #eaeaea;
-  --color-text-muted: #a0a0b0;
-  --color-border: #2a2a4a;
-  --color-success: #4caf50;
-  --color-warning: #ff9800;
-  --color-danger: #f44336;
-  --color-info: #2196f3;
-  --color-terminal-bg: #0d1117;
-  --color-terminal-text: #e6e6e6;
-  --color-primary-hover: #1a4a80;
-  --radius: 6px;
-  --shadow: 0 2px 8px rgba(0,0,0,0.3);
-}
-
-/* === LIGHT GREEN-WHITE THEME === */
 [data-theme="light-green-white"] {
   --color-bg: #f5f7f5;
   --color-surface: #ffffff;
@@ -43,6 +23,26 @@
   --color-primary-hover: #1b5e20;
   --radius: 6px;
   --shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* === DARK NAVY THEME === */
+[data-theme="dark-navy"] {
+  --color-bg: #1a1a2e;
+  --color-surface: #16213e;
+  --color-primary: #0f3460;
+  --color-accent: #e94560;
+  --color-text: #eaeaea;
+  --color-text-muted: #a0a0b0;
+  --color-border: #2a2a4a;
+  --color-success: #4caf50;
+  --color-warning: #ff9800;
+  --color-danger: #f44336;
+  --color-info: #2196f3;
+  --color-terminal-bg: #0d1117;
+  --color-terminal-text: #e6e6e6;
+  --color-primary-hover: #1a4a80;
+  --radius: 6px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.3);
 }
 
 body {
@@ -360,7 +360,7 @@ body {
   padding: 2px 6px;
   border-radius: 3px;
   background: var(--color-primary);
-  color: var(--color-text-muted);
+  color: #ffffff;
 }
 
 .task-card-actions {

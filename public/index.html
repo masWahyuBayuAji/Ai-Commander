@@ -7,14 +7,14 @@
   <script>
     // Apply saved theme immediately to prevent FOUC
     (function() {
-      var saved = localStorage.getItem('color_theme') || 'dark-navy';
+      var saved = localStorage.getItem('color_theme') || 'light-green-white';
       document.body.setAttribute('data-theme', saved);
     })();
   </script>
   <link rel="stylesheet" href="/css/app.css">
   <link rel="stylesheet" href="/vendor/xterm/css/xterm.css">
 </head>
-<body data-theme="dark-navy">
+<body data-theme="light-green-white">
   <header class="header">
     <div class="header-left">
       <button class="view-toggle active" data-view="kanban" title="Kanban View">

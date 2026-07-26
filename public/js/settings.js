@@ -83,8 +83,8 @@
           <div class="form-group">
             <label for="colorTheme">Select Theme</label>
             <select id="colorTheme" class="form-control">
-              <option value="dark-navy">Dark Navy (Default)</option>
-              <option value="light-green-white">Light Green-White</option>
+              <option value="light-green-white">Light Green-White (Default)</option>
+              <option value="dark-navy">Dark Navy</option>
             </select>
           </div>
         </div>
@@ -169,7 +169,7 @@
 
     var colorThemeSelect = document.getElementById('colorTheme');
     if (colorThemeSelect) {
-      colorThemeSelect.value = settings.color_theme || 'dark-navy';
+      colorThemeSelect.value = settings.color_theme || 'light-green-white';
       colorThemeSelect.addEventListener('change', function() {
         var theme = this.value;
         settings.color_theme = theme;
@@ -357,7 +357,7 @@
             </select>
           </td>
           <td>
-            <input class="kg-instruction" data-id="${kg.id}" value="${escapeAttr(kg.instruction || '')}" ${isLocked && kg.is_locked_todo ? 'disabled' : ''} placeholder="${isLocked && kg.is_locked_todo ? 'Locked' : 'Instruction...'}" style="background:var(--color-bg); border:1px solid var(--color-border); color:var(--color-text); padding:4px 8px; border-radius:var(--radius); font-size:12px; width:140px;">
+            <textarea class="kg-instruction" data-id="${kg.id}" rows="2" ${isLocked && kg.is_locked_todo ? 'disabled' : ''} placeholder="${isLocked && kg.is_locked_todo ? 'Locked' : 'Instruction...'}" style="background:var(--color-bg); border:1px solid var(--color-border); color:var(--color-text); padding:4px 8px; border-radius:var(--radius); font-size:12px; width:140px; resize:vertical; font-family:inherit;">${escapeHtml(kg.instruction || '')}</textarea>
           </td>
           <td class="actions">
             ${!isLocked ? '<button class="btn btn-ghost btn-sm" onclick="SettingsPage.saveKanbanGroup(\'' + kg.id + '\')">Save</button>' : ''}
