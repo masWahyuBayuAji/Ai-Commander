@@ -77,7 +77,7 @@ router.put('/api/tasks/:id', (req, res, { params, body }) => {
 
   const updated = taskRepo.update(params.id, {
     detail: body.detail,
-    aiProvider: body.aiProvider,
+    ai_provider: body.aiProvider,
     title: body.title,
   });
 

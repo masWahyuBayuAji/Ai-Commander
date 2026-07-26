@@ -42,25 +42,16 @@
     currentTaskId = taskId;
     destroyTerminal();
 
-    if (window.WsClient) {
-      WsClient.disconnectAll();
-    }
+    var panel = document.getElementById('taskProgressPanel');
+    var titleEl = document.getElementById('taskProgressTitle');
 
-    var bodyHtml = '<div class="task-progress-container">' +
-      '<div class="task-progress-terminal" id="taskProgressTerminal"></div>' +
-      '</div>';
-
-    var footerHtml = '<button class="btn btn-ghost" onclick="TaskProgress.close()">Close</button>';
-
-    Modal.open('Task Progress \u2014 ' + taskId, bodyHtml, footerHtml);
-
-    var modal = document.querySelector('.modal');
-    if (modal) modal.classList.add('modal-fullscreen');
+    titleEl.textContent = 'Task Progress \u2014 ' + taskId;
+    panel.classList.add('visible');
 
     setTimeout(function() {
       createTerminal('taskProgressTerminal');
       loadHistory(taskId);
-    }, 50);
+    }, 100);
 
     if (window.WsClient) {
       WsClient.connect('task:' + taskId, function(msg) {
@@ -95,11 +86,42 @@
     }
     currentTaskId = null;
     destroyTerminal();
-    Modal.close();
+    var panel = document.getElementById('taskProgressPanel');
+    if (panel) panel.classList.remove('visible');
   }
 
   window.TaskProgress = {
     open: openProgress,
     close: close
   };
+
+  document.addEventListener('DOMContentLoaded', function() {
+    var closeBtn = document.getElementById('btnCloseTaskProgress');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', function() {
+        close();
+      });
+    }
+
+    var resizeTimeout;
+    window.addEventListener('resize', function() {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(function() {
+        if (fitAddon && term) {
+          fitAddon.fit();
+        }
+      }, 150);
+    });
+
+    var observer = new ResizeObserver(function() {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(function() {
+        if (fitAddon && term) {
+          fitAddon.fit();
+        }
+      }, 100);
+    });
+    var panel = document.getElementById('taskProgressPanel');
+    if (panel) observer.observe(panel);
+  });
 })();

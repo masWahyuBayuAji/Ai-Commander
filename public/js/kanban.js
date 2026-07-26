@@ -52,9 +52,14 @@
 
       const cardsHtml = tasks.map(function(t) {
         const detailSnippet = (t.detail || '').substring(0, 100);
+        const isRunning = t.session_status === 'running';
         const actionsHtml = [];
         if (isTodo) {
-          actionsHtml.push('<button class="btn btn-success btn-sm" onclick="KanbanBoard.startTask(\'' + t.id + '\')">Start</button>');
+          if (isRunning) {
+            actionsHtml.push('<button class="btn btn-success btn-sm btn-started" disabled>Running</button>');
+          } else {
+            actionsHtml.push('<button class="btn btn-success btn-sm" id="startBtn-' + t.id + '" onclick="KanbanBoard.startTask(\'' + t.id + '\')">Start</button>');
+          }
         }
         if (isDone) {
           actionsHtml.push('<button class="btn btn-danger btn-sm" onclick="KanbanBoard.deleteTask(\'' + t.id + '\')">Delete</button>');
@@ -62,8 +67,10 @@
         actionsHtml.push('<button class="btn btn-ghost btn-sm" onclick="KanbanBoard.editTask(\'' + t.id + '\')">Edit</button>');
         actionsHtml.push('<button class="btn btn-ghost btn-sm" onclick="KanbanBoard.viewTask(\'' + t.id + '\')">View</button>');
 
+        const cardClass = isRunning ? 'task-card running' : 'task-card';
+
         return `
-          <div class="task-card" draggable="true" data-task-id="${t.id}"
+          <div class="${cardClass}" draggable="true" data-task-id="${t.id}"
                ondragstart="KanbanBoard.onDragStart(event)" ondragend="KanbanBoard.onDragEnd(event)">
             <div class="task-card-id">${escapeHtml(t.id)}</div>
             <div class="task-card-detail">${escapeHtml(detailSnippet)}</div>
@@ -149,7 +156,32 @@
   }
 
   async function startTask(taskId) {
-    await fetch('/api/tasks/' + taskId + '/start', { method: 'POST' });
+    var btn = document.getElementById('startBtn-' + taskId);
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Starting...';
+    }
+
+    try {
+      var res = await fetch('/api/tasks/' + taskId + '/start', { method: 'POST' });
+      var json = await res.json();
+      if (!json.ok) {
+        alert('Failed to start task: ' + (json.error || 'Unknown error'));
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = 'Start';
+        }
+        return;
+      }
+    } catch (e) {
+      alert('Failed to start task: ' + e.message);
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Start';
+      }
+      return;
+    }
+
     loadBoard();
   }
 

@@ -640,15 +640,17 @@
           return '<option value="' + k.id + '" ' + selected + '>' + escapeHtml(k.name) + '</option>';
         }).join('');
 
+      var actionButtons = '<button class="btn btn-ghost btn-sm" onclick="SettingsPage.saveKanbanGroup(\'' + kg.id + '\')">Save</button>';
+      if (canDelete) {
+        actionButtons += '<button class="btn btn-danger btn-sm" onclick="SettingsPage.deleteKanbanGroup(\'' + kg.id + '\')">Delete</button>';
+      }
+
       return '<tr>' +
         '<td><input type="text" class="kg-name" data-id="' + kg.id + '" value="' + escapeAttr(kg.name) + '" ' + (isLocked ? 'disabled' : '') + ' style="background:var(--color-bg); border:1px solid var(--color-border); color:var(--color-text); padding:4px 8px; border-radius:var(--radius); font-size:12px; width:120px;"></td>' +
         '<td style="font-family:monospace; font-size:12px;">' + escapeHtml(kg.slash_command) + '</td>' +
-        '<td><select class="kg-next-step" data-id="' + kg.id + '" ' + (isLocked ? 'disabled' : '') + ' style="background:var(--color-bg); border:1px solid var(--color-border); color:var(--color-text); padding:4px 8px; border-radius:var(--radius); font-size:12px;"><option value="">None</option>' + nextOptions + '</select></td>' +
+        '<td><select class="kg-next-step" data-id="' + kg.id + '" style="background:var(--color-bg); border:1px solid var(--color-border); color:var(--color-text); padding:4px 8px; border-radius:var(--radius); font-size:12px;"><option value="">None</option>' + nextOptions + '</select></td>' +
         '<td><textarea class="kg-instruction" data-id="' + kg.id + '" rows="2" ' + (isLocked && kg.is_locked_todo ? 'disabled' : '') + ' placeholder="' + (isLocked && kg.is_locked_todo ? 'Locked' : 'Instruction...') + '" style="background:var(--color-bg); border:1px solid var(--color-border); color:var(--color-text); padding:4px 8px; border-radius:var(--radius); font-size:12px; width:140px; resize:vertical; font-family:inherit;">' + escapeHtml(kg.instruction || '') + '</textarea></td>' +
-        '<td class="actions">' +
-          (!isLocked ? '<button class="btn btn-ghost btn-sm" onclick="SettingsPage.saveKanbanGroup(\'' + kg.id + '\')">Save</button>' : '') +
-          (canDelete ? '<button class="btn btn-danger btn-sm" onclick="SettingsPage.deleteKanbanGroup(\'' + kg.id + '\')">Delete</button>' : '') +
-        '</td></tr>';
+        '<td class="actions">' + actionButtons + '</td></tr>';
     }).join('');
   }
 
@@ -678,7 +680,7 @@
     var nextEl = document.querySelector('.kg-next-step[data-id="' + id + '"]');
     var instrEl = document.querySelector('.kg-instruction[data-id="' + id + '"]');
 
-    var newName = nameEl ? nameEl.value.trim() : null;
+    var newName = nameEl && !nameEl.disabled ? nameEl.value.trim() : null;
     var slashCommand = newName ? '/' + newName.toLowerCase().replace(/\s+/g, '-') : undefined;
 
     await fetch('/api/kanban-groups/' + id, {
@@ -687,7 +689,7 @@
       body: JSON.stringify({
         name: newName || undefined,
         slash_command: slashCommand,
-        nextStepGroupId: nextEl ? nextEl.value || null : null,
+        next_step_group_id: nextEl ? nextEl.value || null : null,
         instruction: instrEl ? instrEl.value || null : null
       })
     });

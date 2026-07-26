@@ -30,15 +30,17 @@ Setelah mencoba beberapa tools kanban/orchestrator AI yang ada, ditemukan dua ma
 - 📋 **Kanban board** dengan kanban group yang bisa dikustomisasi (default: `TO-DO`, `ON PROGRESS`, `NEED REVIEW`, `COMMIT`, `DONE`)
 - 📃 Toggle tampilan **Kanban / List**
 - 🗂️ **Multi-repository** via **Project Group** (mapping alias project ke path folder)
-- ⚙️ **Kanban Group Settings**: atur alur "next step move to" + instruksi default per tahap (mis. instruksi commit di tahap `COMMIT`, instruksi baca `/context` sebelum `/exit` di tahap `DONE`)
-- 🖥️ **Task Progress View**: live terminal view dari session AI yang sedang berjalan
-- 🧭 **Orchestrator Terminal**: satu terminal penuh untuk membuat task/list task secara otomatis (selalu session baru setiap dibuka). AI agent di orchestrator otomatis diberi instruksi cara membuat task lewat `ai-commander-cli create ...`
+- ⚙️ **Kanban Group Settings**: atur alur "next step move to" (termasuk untuk TO-DO) + instruksi default per tahap
+- 🖥️ **Task Progress View**: slide-in panel di sisi kiri layar dengan live terminal view dari session AI yang sedang berjalan
+- 🧭 **Orchestrator Terminal**: slide-in panel di sisi kanan layar untuk membuat task/list task secara otomatis
 - 📊 **Dashboard realtime**: total token usage (dalam K) & total task selesai per Project Group
 - 🗑️ **Soft-delete task**: task yang dihapus disimpan (bukan dihapus permanen), bisa dikembalikan ke `TO-DO`
 - 🤖 Dukungan provider: **Claude Code** & **OpenCode** (via CLI, bypass permission)
-- 🔁 Agent AI dapat **memindahkan task antar kanban group secara otomatis** lewat perintah CLI internal (`ai-commander-cli update ...`) begitu task mencapai state tertentu — tanpa perlu campur tangan manual
-- 🛠️ **CLI `ai-commander-cli`**: command `update` (pindah kanban group) & `create` (buat task baru) bisa dipanggil langsung oleh AI agent dari dalam terminal
-- 🔄 **Auto-recovery**: server otomatis memulihkan task yang terputus saat server di-restart (status diubah ke `interrupted`, user perlu memulai ulang secara manual)
+- 🔁 Agent AI dapat **memindahkan task antar kanban group secara otomatis** lewat perintah CLI internal (`ai-commander-cli update ...`)
+- 🛠️ **CLI `ai-commander-cli`**: command `update` (pindah kanban group) & `create` (buat task baru) bisa dipanggil langsung oleh AI agent
+- 🔄 **Auto-recovery**: server otomatis memulihkan task yang terputus saat server di-restart
+- 🟢 **Running indicator**: task yang sedang berjalan ditandai dengan border hijau dan label "Running"
+- ⚡ **Optimistic UI**: tombol Start menampilkan feedback langsung saat diklik (Starting... → Running)
 
 ---
 
@@ -83,7 +85,11 @@ NO_BROWSER=1 npx ai-commander
 1. Buat **Project Group** (opsional, jika multi-repo diaktifkan di Setting) → mapping alias ke path folder repo.
 2. Buat kanban group & aturan alur (`next step move to`, instruksi per tahap) di halaman **Setting**.
 3. Buat task baru di kolom `TO-DO` (isi detail task + pilih AI Provider).
-4. Klik start → ai-commander membuka 1 session CLI (Claude Code/OpenCode) dengan bypass permission, mengirim:
+4. Klik start → tombol berubah menjadi "Starting..." (optimistic UI), lalu:
+   - Task dipindah ke tahap berikutnya (default: `ON PROGRESS`)
+   - Task card mendapat border hijau dengan label "Running"
+   - Tombol Start berubah menjadi disabled "Running"
+   - ai-commander membuka 1 session CLI (Claude Code/OpenCode) dengan bypass permission
    - UUID Project Group
    - UUID Task (pendek)
    - Daftar kanban group + urutan "next step move to" + instruksi tiap tahap
@@ -93,11 +99,12 @@ NO_BROWSER=1 npx ai-commander
    ai-commander-cli update <project_group_uuid> <task_uuid> <target_kanban_group_uuid>
    ```
 7. UI kanban ter-update secara realtime, dashboard token usage ikut ter-update.
-8. Task terus berjalan otomatis melewati tahap-tahap kanban (`NEED REVIEW` → `COMMIT` → `DONE`) sesuai instruksi masing-masing tahap, kecuali ada tahap yang sengaja ditandai untuk dijalankan manual.
+8. Klik "View" pada task card untuk membuka **slide-in panel** di sisi kiri layar yang menampilkan live terminal output dari task yang sedang berjalan.
+9. Task terus berjalan otomatis melewati tahap-tahap kanban (`NEED REVIEW` → `COMMIT` → `DONE`) sesuai instruksi masing-masing tahap, kecuali ada tahap yang sengaja ditandai untuk dijalankan manual.
 
 ### Membuat task dari Orchestrator
 
-Ketika user membuka Orchestrator, AI agent di dalamnya sudah diberi instruksi awal tentang cara membuat task. User cukup ketik dalam bahasa alami:
+Ketika user membuka Orchestrator (slide-in panel di sisi kanan layar), AI agent di dalamnya sudah diberi instruksi awal tentang cara membuat task. User cukup ketik dalam bahasa alami:
 
 > "Buat task baru dengan deskripsi 'Buat halaman login'"
 

@@ -74,6 +74,19 @@
   <script src="/js/orchestrator.js"></script>
   <script src="/js/app.js"></script>
 
+  <!-- Task Progress Slide-in Panel (Left) -->
+  <div id="taskProgressPanel" class="task-progress-panel">
+    <div class="task-progress-panel-header">
+      <span class="task-progress-panel-title" id="taskProgressTitle">Task Progress</span>
+      <span id="taskProgressProviderLabel" class="task-progress-panel-provider"></span>
+      <div style="flex:1;"></div>
+      <button class="btn btn-ghost btn-sm" id="btnCloseTaskProgress">&times;</button>
+    </div>
+    <div class="task-progress-terminal-wrap" id="taskProgressTerminalWrap">
+      <div id="taskProgressTerminal"></div>
+    </div>
+  </div>
+
   <!-- Orchestrator Slide-in Panel -->
   <div id="orchestratorPanel" class="orchestrator-panel">
     <div class="orchestrator-panel-header">

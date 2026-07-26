@@ -277,11 +277,11 @@ bersama path unix socket, dibaca oleh `ai-commander-cli`).
 | DELETE | `/api/project-groups/:id`                        | Soft delete project group                    |
 | GET    | `/api/kanban-groups?project_group_id=`           | List kanban group (per project group / null) |
 | POST   | `/api/kanban-groups`                             | Tambah kanban group                          |
-| PUT    | `/api/kanban-groups/:id`                         | Edit kanban group (next_step, instruction)   |
+| PUT    | `/api/kanban-groups/:id`                         | Edit kanban group (next_step, instruction) — next_step editable untuk semua group termasuk TO-DO |
 | DELETE | `/api/kanban-groups/:id`                         | Hapus kanban group (kecuali locked)          |
 | GET    | `/api/tasks?project_group_id=&kanban_group_id=`  | List task (untuk kanban/list view)           |
 | POST   | `/api/tasks`                                     | Buat task baru (di TO-DO)                    |
-| PUT    | `/api/tasks/:id`                                 | Edit task (detail, provider)                 |
+| PUT    | `/api/tasks/:id`                                 | Edit task (detail, provider) — konversi `aiProvider` → `ai_provider` otomatis |
 | POST   | `/api/tasks/:id/start`                           | Mulai session CLI utk task ini                |
 | POST   | `/api/tasks/:id/transition`                      | Pindah kanban group (dipakai UI & CLI bridge)|
 | DELETE | `/api/tasks/:id`                                 | Soft delete (set deleted_at)                 |
@@ -307,7 +307,11 @@ bersama path unix socket, dibaca oleh `ai-commander-cli`).
 
 ### 6.1 Saat task di-*start* dari TO-DO
 
-1. Server mengambil daftar `kanban_groups` untuk `project_group_id` task
+1. User mengklik tombol **Start** pada task card di kolom TO-DO.
+2. Frontend menampilkan **optimistic UI**: tombol di-disable dan teks berubah
+   menjadi "Starting...", task card mendapat border hijau dengan label
+   "Running" jika `session_status === 'running'`.
+3. Server mengambil daftar `kanban_groups` untuk `project_group_id` task
    tersebut (atau global jika null), diurutkan sesuai `position`.
 2. Server membangun **instruksi workflow** (berbeda per provider):
    - **Claude Code**: `prompt-builder.js` menghasilkan prompt lengkap berisi
@@ -329,8 +333,10 @@ bersama path unix socket, dibaca oleh `ai-commander-cli`).
    flag bypass-permission, lalu mengirim prompt dari langkah 2 sebagai input
    pertama.
 5. Seluruh output pty di-stream ke `task_events` (type `log`) dan
-   di-broadcast via WebSocket ke `Task Progress View` yang sedang membuka
+   di-broadcast via WebSocket ke Task Progress View yang sedang membuka
    task tsb.
+6. Jika terjadi error, frontend menampilkan alert dan mengembalikan tombol
+   Start ke kondisi aktif.
 
 ### 6.2 Saat agent memanggil `ai-commander-cli update ...` atau `ai-commander-cli create ...`
 
@@ -425,17 +431,27 @@ ai-commander-cli create <project_group_uuid|-> <detail> [ai_provider]
   `@xterm/addon-fit` (auto-resize) dan `@xterm/addon-web-links` (klik link
   di terminal). Library xterm.js di-vendored di `public/vendor/xterm/` agar
   tidak memerlukan bundler. CSS xterm.js di-load via `<link>` di `index.html`.
-- **Task Progress View**: dibuka sebagai modal fullscreen saat user mengklik
-  task yang sedang berjalan. Terminal xterm.js diinisialisasi dengan theme
-  gelap (GitHub-style), `disableStdin: true` (read-only), dan `scrollback:
-  10000`. History log di-load dari `GET /api/tasks/:id/events`, lalu live
-  stream masuk lewat WebSocket channel `task:<id>`.
+- **Task Progress View**: dibuka sebagai **slide-in panel di sisi kiri layar**
+  saat user mengklik tombol "View" pada task card. Panel menggunakan xterm.js
+  terminal dengan theme gelap (GitHub-style), `disableStdin: true` (read-only),
+  dan `scrollback: 10000`. History log di-load dari
+  `GET /api/tasks/:id/events`, lalu live stream masuk lewat WebSocket channel
+  `task:<id>`. Panel bisa di-close tanpa memutus WebSocket channel `board`
+  (hanya disconnect channel task spesifik).
 - **Orchestrator** memakai mekanisme pty yang sama, tapi tidak terikat ke 1
   task — ini adalah sesi bebas untuk membuat/menyusun banyak task/list task
   otomatis. Orchestrator ditampilkan sebagai **slide-in panel** di sisi kanan
   layar (bukan modal terpisah), dengan terminal xterm.js interaktif
   (`disableStdin: false`, `cursorBlink: true`). User bisa mengetik langsung
-  di terminal orchestrator. Saat orchestrator di-start:
+  di terminal orchestrator.
+
+**Task Card UI**:
+- Task dengan `session_status === 'running'` mendapat **border hijau** dan
+  label "Running" di samping task ID.
+- Tombol Start berubah menjadi **disabled "Running"** saat task sedang
+  berjalan.
+- Tombol **View** tersedia di semua kolom (bukan hanya TO-DO) untuk melihat
+  progress task kapan saja. Saat orchestrator di-start:
   - **Claude Code**: server mengirim **initial prompt**
     (`orchestrator-prompt-builder.js`) lewat `--system-prompt` flag.
   - **OpenCode**: server menulis **custom agent file**
