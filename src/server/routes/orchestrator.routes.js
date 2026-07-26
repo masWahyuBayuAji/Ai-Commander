@@ -3,7 +3,7 @@ const orchestratorRunner = require('../../core/orchestrator-runner');
 const taskRepo = require('../../db/repositories/task.repo');
 const kanbanGroupRepo = require('../../db/repositories/kanbanGroup.repo');
 const projectGroupRepo = require('../../db/repositories/projectGroup.repo');
-const settingsRepo = require('../../db/repositories/settings.repo');
+const projectAliasMappingRepo = require('../../db/repositories/projectAliasMapping.repo');
 const wsServer = require('../ws-server');
 
 // POST /api/orchestrator/start - Start orchestrator PTY
@@ -11,19 +11,23 @@ router.post('/api/orchestrator/start', (req, res, { body }) => {
   const provider = (body && body.provider) || 'claude-code';
   const projectGroupId = (body && body.projectGroupId) || null;
 
-  // Resolve cwd: use project group's repo_path, or default to process.cwd()
+  // Resolve cwd: use project group's alias mapping, or default to process.cwd()
   let cwd = null;
   if (projectGroupId) {
     const pg = projectGroupRepo.getById(projectGroupId);
-    if (pg && pg.repo_path) {
-      cwd = pg.repo_path;
+    if (pg) {
+      const aliasPath = projectAliasMappingRepo.getDefaultPath(pg.id);
+      cwd = aliasPath || process.cwd();
     }
   }
   if (!cwd) {
-    // fallback: use first project group with repo_path, or process.cwd()
+    // fallback: use first project group with alias, or process.cwd()
     const allPgs = projectGroupRepo.list();
-    const pgWithRepo = allPgs.find(p => p.repo_path);
-    cwd = pgWithRepo ? pgWithRepo.repo_path : process.cwd();
+    for (const p of allPgs) {
+      const aliasPath = projectAliasMappingRepo.getDefaultPath(p.id);
+      if (aliasPath) { cwd = aliasPath; break; }
+    }
+    if (!cwd) cwd = process.cwd();
   }
 
   const result = orchestratorRunner.start(provider, { cwd, projectGroupId });
@@ -120,16 +124,16 @@ router.post('/api/orchestrator/create-tasks', (req, res, { body }) => {
 
 // GET /api/orchestrator/context - Ambil context untuk orchestrator prompt
 router.get('/api/orchestrator/context', (req, res) => {
-  const settings = settingsRepo.getAllSettings();
-  const useGrouping = settings.use_grouping_project === true || settings.use_grouping_project === 'true';
   const projectGroups = projectGroupRepo.list();
 
   const groups = projectGroups.map(pg => {
     const kanbanGroups = kanbanGroupRepo.listByProjectGroup(pg.id);
+    const aliases = projectAliasMappingRepo.listByProjectGroup(pg.id);
     return {
       id: pg.id,
       name: pg.name,
-      repoPath: pg.repo_path,
+      repoPath: aliases.length > 0 ? aliases[0].path : process.cwd(),
+      aliases: aliases.map(a => ({ name: a.name, path: a.path })),
       kanbanGroups: kanbanGroups.map(kg => ({
         id: kg.id,
         name: kg.name,
@@ -142,23 +146,10 @@ router.get('/api/orchestrator/context', (req, res) => {
     };
   });
 
-  // Also include global kanban groups (when useGrouping = false)
-  const globalKanbanGroups = kanbanGroupRepo.listByProjectGroup(null);
-
   res.writeHead(200, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({
     ok: true,
-    useGroupingProject: useGrouping,
     projectGroups: groups,
-    globalKanbanGroups: globalKanbanGroups.map(kg => ({
-      id: kg.id,
-      name: kg.name,
-      slashCommand: kg.slash_command,
-      nextStepGroupId: kg.next_step_group_id,
-      instruction: kg.instruction,
-      isLockedTodo: kg.is_locked_todo === 1,
-      isLockedDone: kg.is_locked_done === 1,
-    })),
   }));
 });
 

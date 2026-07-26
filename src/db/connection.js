@@ -29,15 +29,14 @@ const migrationFiles = fs.readdirSync(MIGRATIONS_DIR)
   .filter(f => f.endsWith('.sql'))
   .sort();
 
-const runMigration = db.transaction((sql, name) => {
-  db.exec(sql);
-  db.prepare('INSERT INTO _migrations (name, applied_at) VALUES (?, ?)').run(name, new Date().toISOString());
-});
-
 for (const file of migrationFiles) {
   if (!applied.includes(file)) {
     const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, file), 'utf8');
-    runMigration(sql, file);
+    // Disable foreign keys during migrations (allows DROP TABLE with active references)
+    db.pragma('foreign_keys = OFF');
+    db.exec(sql);
+    db.pragma('foreign_keys = ON');
+    db.prepare('INSERT INTO _migrations (name, applied_at) VALUES (?, ?)').run(file, new Date().toISOString());
   }
 }
 
@@ -47,10 +46,6 @@ function seedDefaultKanbanGroups() {
   if (count.cnt > 0) return;
 
   const now = new Date().toISOString();
-
-  db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run(
-    'use_grouping_project', 'false'
-  );
 
   const groups = [
     { name: 'TO-DO',        position: 0, slash_command: '/todo',         is_locked_todo: 1, is_locked_done: 0, instruction: null },

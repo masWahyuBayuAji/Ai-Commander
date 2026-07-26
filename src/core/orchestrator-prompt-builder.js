@@ -1,6 +1,5 @@
 const kanbanGroupRepo = require('../db/repositories/kanbanGroup.repo');
 const projectGroupRepo = require('../db/repositories/projectGroup.repo');
-const settingsRepo = require('../db/repositories/settings.repo');
 
 /**
  * Build the orchestrator system prompt / agent instructions.
@@ -17,13 +16,11 @@ const settingsRepo = require('../db/repositories/settings.repo');
  */
 function buildOrchestratorPrompt(options) {
   const { mode } = options || {};
-  const settings = settingsRepo.getAllSettings();
-  const useGrouping = settings.use_grouping_project === true || settings.use_grouping_project === 'true';
   const projectGroups = projectGroupRepo.list();
 
   // ── Project alias mapping ──
   let projectAliasSection = '';
-  if (useGrouping && projectGroups.length > 0) {
+  if (projectGroups.length > 0) {
     const aliasLines = projectGroups.map(pg =>
       `  - ${pg.name} → ${pg.id}`
     ).join('\n');
@@ -37,7 +34,7 @@ Tidak ada project group. Gunakan "-" (tanda hubung) sebagai <project_group_uuid>
 
   // ── Kanban groups section ──
   let kanbanGroupsSection = '';
-  if (useGrouping && projectGroups.length > 0) {
+  if (projectGroups.length > 0) {
     kanbanGroupsSection = projectGroups.map(pg => {
       const kanbanGroups = kanbanGroupRepo.listByProjectGroup(pg.id);
       const kgList = kanbanGroups.map(kg => {

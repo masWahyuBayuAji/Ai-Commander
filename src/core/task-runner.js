@@ -17,6 +17,7 @@ const pty = require('node-pty');
 const taskRepo = require('../db/repositories/task.repo');
 const kanbanGroupRepo = require('../db/repositories/kanbanGroup.repo');
 const projectGroupRepo = require('../db/repositories/projectGroup.repo');
+const projectAliasMappingRepo = require('../db/repositories/projectAliasMapping.repo');
 const { buildInitialPrompt, buildAgentInstructions } = require('./prompt-builder');
 const opencodeAgentFile = require('./opencode-agent-file');
 const { getAdapter } = require('./provider-adapters');
@@ -58,8 +59,12 @@ async function startTask(taskId) {
   // Get provider adapter
   const adapter = getAdapter(task.ai_provider);
 
-  // Determine working directory
-  const cwd = projectGroup ? projectGroup.repo_path : process.cwd();
+  // Determine working directory (prefer alias mapping)
+  let cwd = process.cwd();
+  if (projectGroup) {
+    const aliasPath = projectAliasMappingRepo.getDefaultPath(projectGroup.id);
+    cwd = aliasPath || process.cwd();
+  }
 
   // Untuk opencode: generate & tulis custom agent file per-task (pengganti --system)
   let agentName;

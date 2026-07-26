@@ -253,39 +253,6 @@
     }
   }
 
-  function openNewGroupModal() {
-    var bodyHtml = '<div class="form-group">' +
-      '<label>Group Name</label>' +
-      '<input type="text" id="newGroupName" placeholder="e.g. TESTING">' +
-      '</div>';
-
-    var footerHtml = '<button class="btn btn-ghost" onclick="Modal.close()">Cancel</button>' +
-      '<button class="btn btn-primary" onclick="KanbanBoard.saveNewGroup()">Save</button>';
-
-    Modal.open('New Kanban Group', bodyHtml, footerHtml);
-  }
-
-  async function saveNewGroup() {
-    var name = document.getElementById('newGroupName').value.trim();
-    if (!name) {
-      alert('Name is required.');
-      return;
-    }
-
-    var slashCommand = '/' + name.toLowerCase().replace(/\s+/g, '-');
-    var pgSelect = document.getElementById('projectGroupSelect');
-    var projectGroupId = pgSelect && pgSelect.value !== 'default' ? pgSelect.value : null;
-
-    await fetch('/api/kanban-groups', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: name, slashCommand: slashCommand, projectGroupId: projectGroupId })
-    });
-
-    Modal.close();
-    loadBoard();
-  }
-
   function escapeHtml(str) {
     if (!str) return '';
     return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -305,9 +272,7 @@
     saveNewTask: saveNewTask,
     editTask: editTask,
     saveEditTask: saveEditTask,
-    openDeletedTasks: openDeletedTasks,
-    openNewGroupModal: openNewGroupModal,
-    saveNewGroup: saveNewGroup
+    openDeletedTasks: openDeletedTasks
   };
 
   document.addEventListener('DOMContentLoaded', function() {

@@ -618,6 +618,47 @@ body {
   gap: 4px;
 }
 
+/* Project Group Name Button */
+.pg-name-btn {
+  text-align: left;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pg-name-btn:hover {
+  opacity: 0.85;
+  box-shadow: var(--shadow);
+}
+
+.pg-name-btn-active {
+  box-shadow: 0 0 0 2px var(--color-accent);
+}
+
+/* Project Group Detail Row */
+.pg-detail-row {
+  background: var(--color-bg) !important;
+}
+
+.pg-detail-row:hover {
+  background: var(--color-bg) !important;
+}
+
+.pg-detail-content {
+  padding: 12px 16px;
+  border-left: 3px solid var(--color-primary);
+  margin-left: 4px;
+}
+
+/* Default row */
+.pg-default-row {
+  opacity: 0.85;
+}
+
+.pg-default-row td {
+  font-style: italic;
+}
+
 /* Inline Form */
 .inline-form {
   display: flex;

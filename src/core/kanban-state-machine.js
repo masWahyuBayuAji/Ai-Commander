@@ -1,6 +1,7 @@
 const taskRepo = require('../db/repositories/task.repo');
 const kanbanGroupRepo = require('../db/repositories/kanbanGroup.repo');
 const projectGroupRepo = require('../db/repositories/projectGroup.repo');
+const projectAliasMappingRepo = require('../db/repositories/projectAliasMapping.repo');
 const opencodeAgentFile = require('./opencode-agent-file');
 
 function validateAndTransition(taskId, targetKanbanGroupId) {
@@ -24,7 +25,7 @@ function validateAndTransition(taskId, targetKanbanGroupId) {
   // Cleanup: kalau task pindah ke kanban group DONE, hapus file agent opencode
   if (targetGroup.is_locked_done === 1 && task.ai_provider === 'opencode') {
     const projectGroup = task.project_group_id ? projectGroupRepo.getById(task.project_group_id) : null;
-    const cwd = projectGroup ? projectGroup.repo_path : process.cwd();
+    const cwd = projectGroup ? (projectAliasMappingRepo.getDefaultPath(projectGroup.id) || process.cwd()) : process.cwd();
     opencodeAgentFile.deleteTaskAgentFile({ cwd, taskId: task.id });
   }
 
