@@ -23,7 +23,7 @@
     "bypass-permission",
     "token-efficiency"
   ],
-  "author": "",
+  "author": "WAHYU BAYU AJI <maswahyubayuaji@gmail.com>",
   "license": "SEE LICENSE IN LICENSE.md",
   "dependencies": {
     "@xterm/addon-fit": "^0.11.0",
