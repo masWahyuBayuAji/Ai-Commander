@@ -32,8 +32,9 @@ Setelah mencoba beberapa tools kanban/orchestrator AI yang ada, ditemukan dua ma
 - 🗂️ **Multi-repository** via **Project Group** (mapping alias project ke path folder)
 - ⚙️ **Kanban Group Settings**: atur alur "next step move to" (termasuk untuk TO-DO) + instruksi default per tahap
 - 🖥️ **Task Progress View**: slide-in panel di sisi kiri layar dengan live terminal view dari session AI yang sedang berjalan
+- ✍️ **Task Progress Input**: form input di bagian bawah panel task progress untuk mengirim perintah/pesan langsung ke task yang sedang berjalan (saat ini masih dalam tahap implementasi — HTML sudah ada, JS/CSS/endpoint belum)
 - 🧭 **Orchestrator Terminal**: slide-in panel di sisi kanan layar untuk membuat task/list task secara otomatis
-- 📊 **Dashboard realtime**: total token usage (dalam K) & total task selesai per Project Group
+- 📊 **Dashboard realtime**: total token usage (dalam K) & total task selesai per Project Group (section dashboard hidden by default di `index.html`, data tetap di-load secara background)
 - 🗂️ **Project Alias Mapping card**: menampilkan informasi alias mapping (name, path, working directory) untuk project group yang aktif
 - 🗑️ **Soft-delete task**: task yang dihapus disimpan (bukan dihapus permanen), bisa dikembalikan ke `TO-DO`
 - 🤖 Dukungan provider: **Claude Code** & **OpenCode** (via CLI, bypass permission)

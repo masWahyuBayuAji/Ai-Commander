@@ -493,6 +493,13 @@ ai-commander-cli create <project_group_uuid|-> <detail> [ai_provider]
   `GET /api/tasks/:id/events`, lalu live stream masuk lewat WebSocket channel
   `task:<id>`. Panel bisa di-close tanpa memutus WebSocket channel `board`
   (hanya disconnect channel task spesifik).
+- **Task Progress Input**: panel task progress dilengkapi form input di bagian
+  bawah (field teks + tombol "Send") yang memungkinkan user mengirim perintah
+  atau pesan langsung ke task yang sedang berjalan. Saat ini form input hanya
+  dirender di DOM (`index.html`) — handler JavaScript, endpoint server
+  (`POST /api/tasks/:id/input`), dan CSS styling belum diimplementasi.
+  Backend function `sendFollowupInstruction()` di `task-runner.js` sudah ada
+  tapi belum ter-expose ke HTTP route manapun.
 - **Orchestrator** memakai mekanisme pty yang sama, tapi tidak terikat ke 1
   task — ini adalah sesi bebas untuk membuat/menyusun banyak task/list task
   otomatis. Orchestrator ditampilkan sebagai **slide-in panel** di sisi kanan
@@ -611,6 +618,10 @@ project group tsb (berbeda dari 5 group global):
 - Update realtime lewat WebSocket broadcast setiap kali ada
   `token_usage` baru (diparse dari output CLI oleh
   `token-usage-parser.js`) atau task berpindah ke `DONE`.
+- Section dashboard di `index.html` saat ini **hidden by default**
+  (`style="display:none"`). Data tetap di-load dan di-render secara
+  background oleh `dashboard.js`, namun section tidak terlihat oleh user
+  karena tidak ada mekanisme toggle visibility yang diimplementasi.
 
 ---
 
