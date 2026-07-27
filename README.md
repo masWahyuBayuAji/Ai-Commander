@@ -3,9 +3,7 @@
 
 # ai-commander
 
-**Kanban-based task orchestrator untuk AI coding agent (Claude Code & OpenCode), dengan dukungan multi-repository, mode bypass-permission, dan kontrol biaya token yang efisien.**
-
-> Status: 🚧 Dalam pengembangan (Tahap 1: Kanban + multi-repo)
+**Kanban-based task orchestrator untuk AI coding agent (Claude Code & OpenCode), dengan dukungan multi-repository, mode bypass-permission, dan usaha efisiensi penggunaan token.**
 
 ---
 

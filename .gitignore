@@ -3,4 +3,5 @@ node_modules/
 *.db-wal
 *.db-shm
 TASKS.md
+CHECKLIST.md
 .codegraph/
