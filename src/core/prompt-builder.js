@@ -170,7 +170,7 @@ ${task.detail}`;
  * @param {boolean} [options.isCwdHome] - True if working directory is the user's home directory
  * @returns {string}
  */
-function buildAgentInstructions({ task, projectGroup, kanbanGroups, isCwdHome }) {
+function buildAgentInstructions({ task, projectGroup, kanbanGroups, isCwdHome, provider = 'opencode' }) {
   const projectGroupUuid = projectGroup ? projectGroup.id : 'null';
   const taskUuid = task.id;
 
@@ -191,7 +191,7 @@ ${aliasLines}`;
   // Build read-instructions-first section (only when cwd is home directory)
   let readInstructionsSection = '';
   if (isCwdHome && aliases.length > 0) {
-    readInstructionsSection = buildReadInstructionsFirst({ aliases, provider: 'opencode' });
+    readInstructionsSection = buildReadInstructionsFirst({ aliases, provider });
   }
 
   const kanbanGroupsList = kanbanGroups.map(kg => {

@@ -113,6 +113,7 @@ ai-commander/
 │   │   ├── prompt-builder.js         # bangun prompt instruksi awal task
 │   │   ├── orchestrator-prompt-builder.js # bangun prompt instruksi awal orchestrator
 │   │   ├── opencode-agent-file.js    # manage custom agent file (task runner + orchestrator) utk OpenCode
+│   │   ├── claude-code-system-prompt-file.js # manage file system prompt sementara utk Claude Code task runner
 │   │   └── token-usage-parser.js     # parse token usage dari output CLI
 │   └── shared/
 │       ├── uuid.js             # wrapper crypto.randomUUID()
@@ -324,13 +325,17 @@ bersama path unix socket, dibaca oleh `ai-commander-cli`).
 3. Server mengambil daftar `kanban_groups` untuk `project_group_id` task
    tersebut (atau global jika null), diurutkan sesuai `position`.
 2. Server membangun **instruksi workflow** (berbeda per provider):
-   - **Claude Code**: `prompt-builder.js` menghasilkan prompt lengkap berisi
+   - **Claude Code**: `prompt-builder.js` menghasilkan instruksi workflow lengkap berisi
      `project_group_uuid`, `task_uuid`, `next_step_group_id` (UUID target
      langsung dari kanban group saat ini), `done_group_id`, daftar kanban
      group beserta `slash_command`, `next_step_group_id`, `instruction`,
      dan perintah eksplisit untuk menjalankan `ai-commander-cli update ...`
-     dengan UUID target yang sudah terisi (bukan placeholder). Prompt ini
-     dikirim langsung sebagai input pertama ke pty.
+     dengan UUID target yang sudah terisi (bukan placeholder). Instruksi ini
+     ditulis ke file sementara (`.claude-tmp/task-<id>.md`) oleh
+     `claude-code-system-prompt-file.js` untuk menghindari limit panjang
+     argumen CLI (ARG_MAX). File path dikirim ke CLI lewat flag
+     `--append-system-prompt-file`. Task detail dari user dikirim sebagai
+     prompt terpisah (bukan digabung dengan instruksi workflow).
    - **OpenCode**: Karena OpenCode tidak mendukung flag `--system`, konteks
       kanban ditulis ke **custom agent file** (`.opencode/agents/aic-task-<id>.md`)
      oleh `opencode-agent-file.js`. File ini berisi instruksi workflow yang sama
@@ -712,7 +717,7 @@ Arsitektur provider adapter memungkinkan dukungan untuk multiple AI CLI
 **Interface** (setiap adapter harus mengimplementasi):
 ```javascript
 {
-  buildSpawnCommand({ cwd, initialPrompt, agentName, interactive })
+  buildSpawnCommand({ cwd, initialPrompt, agentName, systemPromptFilePath, interactive })
     → { command: string, args: string[] }
   
   formatInitialPrompt(prompt)
@@ -723,7 +728,10 @@ Arsitektur provider adapter memungkinkan dukungan untuk multiple AI CLI
 **Adapter yang tersedia**:
 - **`claude-code.adapter.js`**: Spawn `claude` dengan flag
   `--permission-mode bypassPermissions`. Mode interaktif (orchestrator):
-  `--system-prompt "..."`. Mode non-interactive (task runner): `--print "prompt"`.
+  `--system-prompt "..."`. Mode non-interactive (task runner): `--print --verbose "prompt"`.
+  Untuk task runner, instruksi permanen (workflow + kanban) dikirim lewat file
+  terpisah menggunakan `--append-system-prompt-file <path>` (menghindari limit
+  panjang argumen CLI ARG_MAX).
 - **`opencode.adapter.js`**: Spawn `opencode` dengan mode berbeda:
   - Interactive (orchestrator): `opencode --agent <name>` (menggunakan
     custom agent file orchestrator, lihat §6.4)
@@ -749,3 +757,20 @@ ke `.opencode/agents/` di dalam project. Ada 2 jenis agent file:
 Kedua jenis file dibuat oleh `opencode-agent-file.js` yang menyediakan
 fungsi `writeTaskAgentFile()`, `deleteTaskAgentFile()`,
 `writeOrchestratorAgentFile()`, dan `deleteOrchestratorAgentFile()`.
+
+**Custom System Prompt File (Claude Code)**: Karena instruksi workflow + kanban
+bisa sangat panjang (banyak kanban group, banyak alias project), Claude Code
+menggunakan file terpisah untuk menghindari limit panjang argumen CLI (ARG_MAX).
+File disimpan di `.claude-tmp/task-<id>.md` di dalam working directory task.
+
+- **Task runner**: `.claude-tmp/task-<id>.md` — per-task, dihapus saat task
+  selesai (masuk DONE) DAN saat proses PTY exit sebagai jaring pengaman.
+- **Flag CLI**: `--append-system-prompt-file <path>` (hanya berlaku bareng
+  `--print`, lihat dokumentasi Claude Code CLI).
+- **Verbose output**: Flag `--verbose` ditambahkan untuk menampilkan detail
+  tool call (Bash/Grep/Read/dll) di output terminal, mendekati pengalaman
+  OpenCode.
+
+File dibuat oleh `claude-code-system-prompt-file.js` yang menyediakan
+fungsi `writeTaskSystemPromptFile()`, `deleteTaskSystemPromptFile()`,
+dan `getSystemPromptFilePath()`.

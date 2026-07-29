@@ -21,6 +21,7 @@ const projectGroupRepo = require('../db/repositories/projectGroup.repo');
 const projectAliasMappingRepo = require('../db/repositories/projectAliasMapping.repo');
 const { buildInitialPrompt, buildAgentInstructions } = require('./prompt-builder');
 const opencodeAgentFile = require('./opencode-agent-file');
+const claudeCodeSystemPromptFile = require('./claude-code-system-prompt-file');
 const { getAdapter } = require('./provider-adapters');
 const wsServer = require('../server/ws-server');
 const uuid = require('../shared/uuid');
@@ -81,14 +82,26 @@ async function startTask(taskId) {
     console.log('[TaskRunner] isCwdHome:', isCwdHome);
   }
 
+  // [2.b] Untuk claude-code: tulis instruksi workflow+kanban ke file system
+  // prompt terpisah (pengganti gabung-jadi-satu-teks-raksasa).
+  let systemPromptFilePath;
+  if (task.ai_provider === 'claude-code') {
+    const instructions = buildAgentInstructions({ task, projectGroup, kanbanGroups, isCwdHome, provider: 'claude-code' });
+    systemPromptFilePath = claudeCodeSystemPromptFile.writeTaskSystemPromptFile({ cwd, taskId: task.id, instructions });
+    console.log('[TaskRunner] Claude Code system prompt file written:', systemPromptFilePath);
+    console.log('[TaskRunner] CWD:', cwd);
+    console.log('[TaskRunner] isCwdHome:', isCwdHome);
+  }
+
   // Prompt yang dikirim sebagai "task/prompt user" = detail task apa adanya.
-  // Konteks kanban lengkap sudah ada di file agent (untuk opencode).
-  const initialPrompt = task.ai_provider === 'opencode'
+  // Konteks kanban lengkap sudah ada di file agent (opencode) / file system
+  // prompt (claude-code).
+  const initialPrompt = (task.ai_provider === 'opencode' || task.ai_provider === 'claude-code')
     ? task.detail
     : buildInitialPrompt({ task, projectGroup, kanbanGroups, isCwdHome });
 
   // Build spawn command
-  const { command, args } = adapter.buildSpawnCommand({ cwd, initialPrompt, agentName, interactive: false });
+  const { command, args } = adapter.buildSpawnCommand({ cwd, initialPrompt, agentName, systemPromptFilePath, interactive: false });
 
   try {
     // Spawn PTY process
@@ -148,6 +161,15 @@ async function startTask(taskId) {
 
     // Handle PTY exit
     ptyProcess.onExit(({ exitCode, signal }) => {
+      // [2.b] Jaring pengaman: hapus file system prompt claude-code kalau
+      // task selesai TAPI belum sempat pindah ke DONE (misal task error/
+      // di-cancel). Kalau task sukses pindah DONE, file ini sudah dihapus
+      // duluan oleh kanban-state-machine.js — pemanggilan kedua ini aman
+      // (idempotent, tidak akan error kalau file sudah tidak ada).
+      if (task.ai_provider === 'claude-code') {
+        claudeCodeSystemPromptFile.deleteTaskSystemPromptFile({ cwd, taskId: task.id });
+      }
+
       const exitNow = new Date().toISOString();
       const status = exitCode === 0 ? 'finished' : 'error';
       
