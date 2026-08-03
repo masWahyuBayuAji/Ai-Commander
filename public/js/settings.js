@@ -28,6 +28,12 @@
       toolbar.style.display = name === 'settings' ? 'none' : '';
     }
 
+    // Hide project alias mapping card when settings view is active
+    var projectAliasSection = document.getElementById('projectAliasSection');
+    if (projectAliasSection) {
+      projectAliasSection.style.display = name === 'settings' ? 'none' : '';
+    }
+
     if (name === 'settings') {
       loadSettings();
     }
