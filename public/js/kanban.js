@@ -301,7 +301,11 @@
       var res = await fetch('/api/tasks/' + taskId + '/start', { method: 'POST' });
       var json = await res.json();
       if (!json.ok) {
-        alert('Failed to start task: ' + (json.error || 'Unknown error'));
+        if (window.showNotification) {
+          showNotification('Failed to start task: ' + (json.error || 'Unknown error'), 'error');
+        } else {
+          alert('Failed to start task: ' + (json.error || 'Unknown error'));
+        }
         if (btn) {
           btn.disabled = false;
           btn.textContent = 'Start';
@@ -309,7 +313,11 @@
         return;
       }
     } catch (e) {
-      alert('Failed to start task: ' + e.message);
+      if (window.showNotification) {
+        showNotification('Failed to start task: ' + e.message, 'error');
+      } else {
+        alert('Failed to start task: ' + e.message);
+      }
       if (btn) {
         btn.disabled = false;
         btn.textContent = 'Start';
@@ -322,7 +330,23 @@
 
   async function deleteTask(taskId) {
     if (!confirm('Delete this task?')) return;
-    await fetch('/api/tasks/' + taskId, { method: 'DELETE' });
+    try {
+      var res = await fetch('/api/tasks/' + taskId, { method: 'DELETE' });
+      var json = await res.json();
+      if (json.ok) {
+        if (window.showNotification) {
+          showNotification('Delete Success', 'success');
+        }
+      } else {
+        if (window.showNotification) {
+          showNotification('Delete Failed: ' + (json.error || 'Unknown error'), 'error');
+        }
+      }
+    } catch (e) {
+      if (window.showNotification) {
+        showNotification('Delete Failed: ' + e.message, 'error');
+      }
+    }
     loadBoard();
   }
 
@@ -360,15 +384,35 @@
     var projectGroupId = pgSelect && pgSelect.value !== 'default' ? pgSelect.value : null;
 
     if (!detail) {
-      alert('Detail is required.');
+      if (window.showNotification) {
+        showNotification('Detail is required.', 'error');
+      } else {
+        alert('Detail is required.');
+      }
       return;
     }
 
-    await fetch('/api/tasks', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ projectGroupId: projectGroupId, detail: detail, aiProvider: aiProvider })
-    });
+    try {
+      var res = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectGroupId: projectGroupId, detail: detail, aiProvider: aiProvider })
+      });
+      var json = await res.json();
+      if (json.ok) {
+        if (window.showNotification) {
+          showNotification('Create Success', 'success');
+        }
+      } else {
+        if (window.showNotification) {
+          showNotification('Create Failed: ' + (json.error || 'Unknown error'), 'error');
+        }
+      }
+    } catch (e) {
+      if (window.showNotification) {
+        showNotification('Create Failed: ' + e.message, 'error');
+      }
+    }
 
     Modal.close();
     loadBoard();
@@ -400,15 +444,35 @@
     var aiProvider = document.getElementById('editTaskProvider').value;
 
     if (!detail) {
-      alert('Detail is required.');
+      if (window.showNotification) {
+        showNotification('Detail is required.', 'error');
+      } else {
+        alert('Detail is required.');
+      }
       return;
     }
 
-    await fetch('/api/tasks/' + taskId, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ detail: detail, aiProvider: aiProvider })
-    });
+    try {
+      var res = await fetch('/api/tasks/' + taskId, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ detail: detail, aiProvider: aiProvider })
+      });
+      var json = await res.json();
+      if (json.ok) {
+        if (window.showNotification) {
+          showNotification('Update Success', 'success');
+        }
+      } else {
+        if (window.showNotification) {
+          showNotification('Update Failed: ' + (json.error || 'Unknown error'), 'error');
+        }
+      }
+    } catch (e) {
+      if (window.showNotification) {
+        showNotification('Update Failed: ' + e.message, 'error');
+      }
+    }
 
     Modal.close();
     loadBoard();

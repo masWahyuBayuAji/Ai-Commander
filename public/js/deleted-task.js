@@ -30,7 +30,23 @@
   }
 
   async function restore(taskId) {
-    await fetch('/api/tasks/' + taskId + '/restore', { method: 'POST' });
+    try {
+      var res = await fetch('/api/tasks/' + taskId + '/restore', { method: 'POST' });
+      var json = await res.json();
+      if (json.ok !== false) {
+        if (window.showNotification) {
+          showNotification('Task Restored', 'success');
+        }
+      } else {
+        if (window.showNotification) {
+          showNotification('Restore Failed: ' + (json.error || 'Unknown error'), 'error');
+        }
+      }
+    } catch (e) {
+      if (window.showNotification) {
+        showNotification('Restore Failed: ' + e.message, 'error');
+      }
+    }
     Modal.close();
     if (window.KanbanBoard) KanbanBoard.load();
   }

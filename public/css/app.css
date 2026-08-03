@@ -1074,3 +1074,34 @@ body {
   pointer-events: none;
   z-index: 10;
 }
+
+/* Notification Pop-up */
+.notification-success {
+  background: #43a047;
+}
+
+.notification-error {
+  background: #e57373;
+}
+
+@keyframes notificationSlideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes notificationSlideOut {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}

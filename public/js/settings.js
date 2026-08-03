@@ -379,7 +379,11 @@
   async function saveProjectGroup() {
     var name = document.getElementById('pgName').value.trim();
     if (!name) {
-      alert('Name is required.');
+      if (window.showNotification) {
+        showNotification('Name is required.', 'error');
+      } else {
+        alert('Name is required.');
+      }
       return;
     }
 
@@ -398,31 +402,57 @@
         }
       });
       if (aliases.length === 0) {
-        alert('Add at least one alias mapping.');
+        if (window.showNotification) {
+          showNotification('Add at least one alias mapping.', 'error');
+        } else {
+          alert('Add at least one alias mapping.');
+        }
         return;
       }
       payload.aliases = aliases;
     } else {
       var path = document.getElementById('pgPath').value.trim();
       if (!path) {
-        alert('Path to project is required.');
+        if (window.showNotification) {
+          showNotification('Path to project is required.', 'error');
+        } else {
+          alert('Path to project is required.');
+        }
         return;
       }
       payload.path = path;
     }
 
-    if (editingProjectGroup) {
-      await fetch('/api/project-groups/' + editingProjectGroup, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-    } else {
-      await fetch('/api/project-groups', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+    try {
+      var res;
+      var actionType = editingProjectGroup ? 'Update' : 'Create';
+      if (editingProjectGroup) {
+        res = await fetch('/api/project-groups/' + editingProjectGroup, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      } else {
+        res = await fetch('/api/project-groups', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      }
+      var json = await res.json();
+      if (json.ok !== false) {
+        if (window.showNotification) {
+          showNotification(actionType + ' Success', 'success');
+        }
+      } else {
+        if (window.showNotification) {
+          showNotification(actionType + ' Failed: ' + (json.error || 'Unknown error'), 'error');
+        }
+      }
+    } catch (e) {
+      if (window.showNotification) {
+        showNotification('Failed: ' + e.message, 'error');
+      }
     }
 
     cancelEditProjectGroup();
@@ -476,7 +506,23 @@
 
   async function deleteProjectGroup(id) {
     if (!confirm('Delete this project group?')) return;
-    await fetch('/api/project-groups/' + id, { method: 'DELETE' });
+    try {
+      var res = await fetch('/api/project-groups/' + id, { method: 'DELETE' });
+      var json = await res.json();
+      if (json.ok !== false) {
+        if (window.showNotification) {
+          showNotification('Delete Success', 'success');
+        }
+      } else {
+        if (window.showNotification) {
+          showNotification('Delete Failed: ' + (json.error || 'Unknown error'), 'error');
+        }
+      }
+    } catch (e) {
+      if (window.showNotification) {
+        showNotification('Delete Failed: ' + e.message, 'error');
+      }
+    }
     if (expandedGroupId === id) expandedGroupId = null;
     await renderProjectGroupTable();
     updateProjectGroupDropdown();
@@ -542,7 +588,11 @@
     var useAlias = useAliasCheckbox ? useAliasCheckbox.checked : pg.use_alias_mapping === 1;
 
     if (!name) {
-      alert('Name is required.');
+      if (window.showNotification) {
+        showNotification('Name is required.', 'error');
+      } else {
+        alert('Name is required.');
+      }
       return;
     }
 
@@ -560,7 +610,11 @@
         }
       });
       if (aliases.length === 0) {
-        alert('Add at least one alias mapping.');
+        if (window.showNotification) {
+          showNotification('Add at least one alias mapping.', 'error');
+        } else {
+          alert('Add at least one alias mapping.');
+        }
         return;
       }
       payload.aliases = aliases;
@@ -568,17 +622,37 @@
       var pathEl = document.getElementById('pgDetailPath_' + pgId);
       var path = pathEl ? pathEl.value.trim() : '';
       if (!path) {
-        alert('Path to project is required.');
+        if (window.showNotification) {
+          showNotification('Path to project is required.', 'error');
+        } else {
+          alert('Path to project is required.');
+        }
         return;
       }
       payload.path = path;
     }
 
-    await fetch('/api/project-groups/' + pgId, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+    try {
+      var res = await fetch('/api/project-groups/' + pgId, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      var json = await res.json();
+      if (json.ok !== false) {
+        if (window.showNotification) {
+          showNotification('Update Success', 'success');
+        }
+      } else {
+        if (window.showNotification) {
+          showNotification('Update Failed: ' + (json.error || 'Unknown error'), 'error');
+        }
+      }
+    } catch (e) {
+      if (window.showNotification) {
+        showNotification('Update Failed: ' + e.message, 'error');
+      }
+    }
 
     await renderProjectGroupTable();
     updateProjectGroupDropdown();
@@ -589,17 +663,37 @@
     var pathEl = document.getElementById('defaultPathInput');
     var path = pathEl ? pathEl.value.trim() : '';
     if (!path) {
-      alert('Path to project is required.');
+      if (window.showNotification) {
+        showNotification('Path to project is required.', 'error');
+      } else {
+        alert('Path to project is required.');
+      }
       return;
     }
 
-    await fetch('/api/settings', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ default_project_path: path })
-    });
+    try {
+      var res = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ default_project_path: path })
+      });
+      var json = await res.json();
+      if (json.ok !== false) {
+        if (window.showNotification) {
+          showNotification('Update Success', 'success');
+        }
+        settings.default_project_path = path;
+      } else {
+        if (window.showNotification) {
+          showNotification('Update Failed: ' + (json.error || 'Unknown error'), 'error');
+        }
+      }
+    } catch (e) {
+      if (window.showNotification) {
+        showNotification('Update Failed: ' + e.message, 'error');
+      }
+    }
 
-    settings.default_project_path = path;
     await renderProjectGroupTable();
   }
 
@@ -681,7 +775,11 @@
   async function addKanbanGroup() {
     var name = document.getElementById('kgName').value.trim();
     if (!name) {
-      alert('Name is required.');
+      if (window.showNotification) {
+        showNotification('Name is required.', 'error');
+      } else {
+        alert('Name is required.');
+      }
       return;
     }
 
@@ -689,11 +787,27 @@
     var pgSelect = document.getElementById('kanbanPgSelect');
     var projectGroupId = pgSelect && pgSelect.value !== 'default' ? pgSelect.value : null;
 
-    await fetch('/api/kanban-groups', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: name, slashCommand: slashCommand, projectGroupId: projectGroupId })
-    });
+    try {
+      var res = await fetch('/api/kanban-groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name, slashCommand: slashCommand, projectGroupId: projectGroupId })
+      });
+      var json = await res.json();
+      if (json.ok !== false) {
+        if (window.showNotification) {
+          showNotification('Create Success', 'success');
+        }
+      } else {
+        if (window.showNotification) {
+          showNotification('Create Failed: ' + (json.error || 'Unknown error'), 'error');
+        }
+      }
+    } catch (e) {
+      if (window.showNotification) {
+        showNotification('Create Failed: ' + e.message, 'error');
+      }
+    }
 
     document.getElementById('kgName').value = '';
     await renderKanbanGroupTable();
@@ -707,26 +821,56 @@
     var newName = nameEl && !nameEl.disabled ? nameEl.value.trim() : null;
     var slashCommand = newName ? '/' + newName.toLowerCase().replace(/\s+/g, '-') : undefined;
 
-    await fetch('/api/kanban-groups/' + id, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: newName || undefined,
-        slash_command: slashCommand,
-        next_step_group_id: nextEl ? nextEl.value || null : null,
-        instruction: instrEl ? instrEl.value || null : null
-      })
-    });
+    try {
+      var res = await fetch('/api/kanban-groups/' + id, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newName || undefined,
+          slash_command: slashCommand,
+          next_step_group_id: nextEl ? nextEl.value || null : null,
+          instruction: instrEl ? instrEl.value || null : null
+        })
+      });
+      var json = await res.json();
+      if (json.ok !== false) {
+        if (window.showNotification) {
+          showNotification('Update Success', 'success');
+        }
+      } else {
+        if (window.showNotification) {
+          showNotification('Update Failed: ' + (json.error || 'Unknown error'), 'error');
+        }
+      }
+    } catch (e) {
+      if (window.showNotification) {
+        showNotification('Update Failed: ' + e.message, 'error');
+      }
+    }
 
     await renderKanbanGroupTable();
   }
 
   async function deleteKanbanGroup(id) {
     if (!confirm('Delete this kanban group?')) return;
-    var res = await fetch('/api/kanban-groups/' + id, { method: 'DELETE' });
-    if (!res.ok) {
-      var data = await res.json();
-      alert(data.error || 'Failed to delete.');
+    try {
+      var res = await fetch('/api/kanban-groups/' + id, { method: 'DELETE' });
+      var json = await res.json();
+      if (res.ok && json.ok !== false) {
+        if (window.showNotification) {
+          showNotification('Delete Success', 'success');
+        }
+      } else {
+        if (window.showNotification) {
+          showNotification(json.error || 'Failed to delete.', 'error');
+        } else {
+          alert(json.error || 'Failed to delete.');
+        }
+      }
+    } catch (e) {
+      if (window.showNotification) {
+        showNotification('Delete Failed: ' + e.message, 'error');
+      }
     }
     await renderKanbanGroupTable();
   }

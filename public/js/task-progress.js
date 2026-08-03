@@ -138,7 +138,11 @@
       var json = await res.json();
 
       if (!json.ok) {
-        alert('Failed to stop task: ' + (json.error || 'Unknown error'));
+        if (window.showNotification) {
+          showNotification('Failed to stop task: ' + (json.error || 'Unknown error'), 'error');
+        } else {
+          alert('Failed to stop task: ' + (json.error || 'Unknown error'));
+        }
         btn.disabled = false;
         btn.textContent = 'Emergency Stop';
         return;
@@ -146,7 +150,11 @@
 
       btn.style.display = 'none';
     } catch (e) {
-      alert('Failed to stop task: ' + e.message);
+      if (window.showNotification) {
+        showNotification('Failed to stop task: ' + e.message, 'error');
+      } else {
+        alert('Failed to stop task: ' + e.message);
+      }
       btn.disabled = false;
       btn.textContent = 'Emergency Stop';
     }
