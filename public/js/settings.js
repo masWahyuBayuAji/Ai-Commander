@@ -416,6 +416,7 @@
     cancelEditProjectGroup();
     await renderProjectGroupTable();
     updateProjectGroupDropdown();
+    updateKanbanPgDropdown();
   }
 
   function cancelEditProjectGroup() {
@@ -467,6 +468,7 @@
     if (expandedGroupId === id) expandedGroupId = null;
     await renderProjectGroupTable();
     updateProjectGroupDropdown();
+    updateKanbanPgDropdown();
   }
 
   function toggleDetail(id) {
@@ -568,6 +570,7 @@
 
     await renderProjectGroupTable();
     updateProjectGroupDropdown();
+    updateKanbanPgDropdown();
   }
 
   async function saveDefaultPath() {
@@ -592,6 +595,9 @@
     await loadProjectGroups();
     var pgSelect = document.getElementById('kanbanPgSelect');
 
+    // Preserve current selection before re-rendering
+    var currentPgId = pgSelect ? pgSelect.value : 'default';
+
     pgSelect.innerHTML = '<option value="default">default</option>' +
       projectGroups.map(function(pg) {
         return '<option value="' + pg.id + '">' + escapeHtml(pg.name) + '</option>';
@@ -601,7 +607,13 @@
       loadAndRenderKanbanGroups(this.value);
     };
 
-    await loadAndRenderKanbanGroups('default');
+    // Restore previous selection if still valid, otherwise fallback to 'default'
+    if (currentPgId && pgSelect.querySelector('option[value="' + currentPgId + '"]')) {
+      pgSelect.value = currentPgId;
+      await loadAndRenderKanbanGroups(currentPgId);
+    } else {
+      await loadAndRenderKanbanGroups('default');
+    }
   }
 
   async function loadAndRenderKanbanGroups(pgId) {
@@ -728,6 +740,24 @@
 
     select.removeEventListener('change', _onProjectGroupChange);
     select.addEventListener('change', _onProjectGroupChange);
+  }
+
+  async function updateKanbanPgDropdown() {
+    await loadProjectGroups();
+    var pgSelect = document.getElementById('kanbanPgSelect');
+    if (!pgSelect) return;
+    var currentVal = pgSelect.value;
+    pgSelect.innerHTML = '<option value="default">default</option>' +
+      projectGroups.map(function(pg) {
+        return '<option value="' + pg.id + '">' + escapeHtml(pg.name) + '</option>';
+      }).join('');
+    // Preserve selection if still valid, otherwise fallback to 'default'
+    if (currentVal && pgSelect.querySelector('option[value="' + currentVal + '"]')) {
+      pgSelect.value = currentVal;
+    } else {
+      pgSelect.value = 'default';
+      loadAndRenderKanbanGroups('default');
+    }
   }
 
   function _onProjectGroupChange() {
