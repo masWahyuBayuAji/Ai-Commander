@@ -22,6 +22,12 @@
       btn.classList.toggle('active', btn.dataset.view === name);
     });
 
+    // Hide toolbar when settings view is active
+    var toolbar = document.querySelector('.toolbar');
+    if (toolbar) {
+      toolbar.style.display = name === 'settings' ? 'none' : '';
+    }
+
     if (name === 'settings') {
       loadSettings();
     }
