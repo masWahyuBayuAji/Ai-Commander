@@ -5,3 +5,4 @@ node_modules/
 TASKS.md
 CHECKLIST.md
 .codegraph/
+.opencode/

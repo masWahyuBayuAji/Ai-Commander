@@ -257,6 +257,54 @@ function sendFollowupInstruction(taskId, text) {
 }
 
 /**
+ * Emergency stop a running task by killing the PTY process
+ * @param {string} taskId - The task ID to stop
+ * @returns {Object} Result with success status
+ */
+function stopTask(taskId) {
+  const runningTask = runningTasks.get(taskId);
+  if (!runningTask) {
+    return { ok: false, error: 'Task is not running' };
+  }
+
+  try {
+    // Kill the PTY process tree (SIGTERM first, then SIGKILL on exit if needed)
+    const pid = runningTask.ptyProcess.pid;
+    runningTask.ptyProcess.kill();
+
+    // Update task status in database
+    const now = new Date().toISOString();
+    taskRepo.update(taskId, {
+      session_status: 'error',
+      finished_at: now,
+    });
+
+    // Save stop event
+    const eventId = uuid();
+    db.prepare(`
+      INSERT INTO task_events (id, task_id, type, content, created_at)
+      VALUES (?, ?, 'error', ?, ?)
+    `).run(eventId, taskId, `[Emergency Stop] Task manually stopped (PID: ${pid})`, now);
+
+    // Broadcast task update
+    wsServer.broadcast('board', {
+      type: 'task_updated',
+      data: taskRepo.getById(taskId),
+    });
+
+    // Broadcast to task channel
+    wsServer.broadcast(`task:${taskId}`, {
+      type: 'exit',
+      data: { exitCode: -1, signal: 'SIGTERM', status: 'stopped' },
+    });
+
+    return { ok: true, task: taskRepo.getById(taskId) };
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
+}
+
+/**
  * Get status of a running task
  * @param {string} taskId - The task ID
  * @returns {Object|null} Task status info or null if not running
@@ -292,6 +340,7 @@ function getAllRunningTasks() {
 
 module.exports = {
   startTask,
+  stopTask,
   sendFollowupInstruction,
   getTaskStatus,
   getAllRunningTasks,

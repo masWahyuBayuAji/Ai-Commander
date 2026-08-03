@@ -410,6 +410,30 @@ body {
   background: #e53935;
 }
 
+.btn-emergency-stop {
+  background: #d32f2f;
+  color: #fff;
+  font-weight: 600;
+  border: 2px solid #b71c1c;
+  animation: emergency-pulse 1.5s infinite;
+}
+
+.btn-emergency-stop:hover {
+  background: #b71c1c;
+  border-color: #8b0000;
+}
+
+.btn-emergency-stop:disabled {
+  animation: none;
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+@keyframes emergency-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(211, 47, 47, 0.5); }
+  50% { box-shadow: 0 0 0 6px rgba(211, 47, 47, 0); }
+}
+
 .btn-ghost {
   background: transparent;
   color: var(--color-text-muted);

@@ -167,6 +167,34 @@ router.put('/api/tasks/:id/next-run', (req, res, { params, body }) => {
   res.end(JSON.stringify({ ok: true, data: updated }));
 });
 
+// POST /api/tasks/:id/stop - Emergency stop a running task
+router.post('/api/tasks/:id/stop', (req, res, { params }) => {
+  const task = taskRepo.getById(params.id);
+  if (!task) {
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Task not found' }));
+    return;
+  }
+
+  if (task.session_status !== 'running') {
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Task is not running' }));
+    return;
+  }
+
+  const taskRunner = require('../../core/task-runner');
+  const result = taskRunner.stopTask(params.id);
+
+  if (!result.ok) {
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: result.error }));
+    return;
+  }
+
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ ok: true, data: result.task }));
+});
+
 // POST /api/tasks/:id/start - Start task execution
 router.post('/api/tasks/:id/start', async (req, res, { params }) => {
   const task = taskRepo.getById(params.id);

@@ -38,6 +38,29 @@
     }
   }
 
+  /**
+   * Check task status and update Emergency Stop button visibility
+   */
+  async function checkTaskStatus(taskId) {
+    var btn = document.getElementById('btnEmergencyStopTask');
+    if (!btn) return;
+
+    try {
+      var res = await fetch('/api/tasks');
+      var json = await res.json();
+      var tasks = json.data || json || [];
+      var task = tasks.find(function(t) { return t.id === taskId; });
+
+      if (task && task.session_status === 'running') {
+        btn.style.display = '';
+      } else {
+        btn.style.display = 'none';
+      }
+    } catch (e) {
+      btn.style.display = 'none';
+    }
+  }
+
   function openProgress(taskId) {
     currentTaskId = taskId;
     destroyTerminal();
@@ -48,6 +71,9 @@
     titleEl.textContent = 'Task Progress \u2014 ' + taskId;
     panel.classList.add('visible');
 
+    // Check task status and show/hide Emergency Stop button
+    checkTaskStatus(taskId);
+
     setTimeout(function() {
       createTerminal('taskProgressTerminal');
       loadHistory(taskId);
@@ -57,6 +83,19 @@
       WsClient.connect('task:' + taskId, function(msg) {
         if (msg.data && msg.data.data && msg.data.type === 'log' && term) {
           term.write(msg.data.data);
+        }
+        // When task exits, hide Emergency Stop button
+        if (msg.data && msg.data.type === 'exit') {
+          var btn = document.getElementById('btnEmergencyStopTask');
+          if (btn) btn.style.display = 'none';
+        }
+      });
+
+      // Also listen on board channel for task status updates
+      WsClient.connect('board', function(msg) {
+        var evt = msg && msg.data;
+        if (evt && evt.type === 'task_updated' && evt.data && evt.data.id === taskId) {
+          checkTaskStatus(taskId);
         }
       });
     }
@@ -80,6 +119,39 @@
     }
   }
 
+  /**
+   * Emergency stop the current running task
+   */
+  async function emergencyStop() {
+    if (!currentTaskId) return;
+
+    var btn = document.getElementById('btnEmergencyStopTask');
+    if (!btn) return;
+
+    if (!confirm('Are you sure you want to emergency stop this task?')) return;
+
+    btn.disabled = true;
+    btn.textContent = 'Stopping...';
+
+    try {
+      var res = await fetch('/api/tasks/' + currentTaskId + '/stop', { method: 'POST' });
+      var json = await res.json();
+
+      if (!json.ok) {
+        alert('Failed to stop task: ' + (json.error || 'Unknown error'));
+        btn.disabled = false;
+        btn.textContent = 'Emergency Stop';
+        return;
+      }
+
+      btn.style.display = 'none';
+    } catch (e) {
+      alert('Failed to stop task: ' + e.message);
+      btn.disabled = false;
+      btn.textContent = 'Emergency Stop';
+    }
+  }
+
   function close() {
     if (window.WsClient && currentTaskId) {
       WsClient.disconnect('task:' + currentTaskId);
@@ -88,6 +160,14 @@
     destroyTerminal();
     var panel = document.getElementById('taskProgressPanel');
     if (panel) panel.classList.remove('visible');
+
+    // Hide Emergency Stop button on close
+    var btn = document.getElementById('btnEmergencyStopTask');
+    if (btn) {
+      btn.style.display = 'none';
+      btn.disabled = false;
+      btn.textContent = 'Emergency Stop';
+    }
   }
 
   window.TaskProgress = {
@@ -100,6 +180,14 @@
     if (closeBtn) {
       closeBtn.addEventListener('click', function() {
         close();
+      });
+    }
+
+    // Emergency Stop button event listener
+    var emergencyStopBtn = document.getElementById('btnEmergencyStopTask');
+    if (emergencyStopBtn) {
+      emergencyStopBtn.addEventListener('click', function() {
+        emergencyStop();
       });
     }
 
