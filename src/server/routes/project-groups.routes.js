@@ -1,6 +1,7 @@
 const { router } = require('../router');
 const projectGroupRepo = require('../../db/repositories/projectGroup.repo');
 const projectAliasMappingRepo = require('../../db/repositories/projectAliasMapping.repo');
+const kanbanGroupRepo = require('../../db/repositories/kanbanGroup.repo');
 const fs = require('node:fs');
 
 // GET /api/project-groups - List project groups (with aliases)
@@ -33,6 +34,9 @@ router.post('/api/project-groups', (req, res, { body }) => {
     name: body.name,
     useAliasMapping: useAliasMapping,
   });
+
+  // Auto-create default kanban groups (TO-DO, ON PROGRESS, DONE)
+  kanbanGroupRepo.createDefaultsForProjectGroup(group.id);
 
   // Create alias mappings
   if (useAliasMapping && body.aliases && Array.isArray(body.aliases)) {
