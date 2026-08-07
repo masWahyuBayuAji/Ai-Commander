@@ -58,7 +58,7 @@ router.post('/api/tasks', (req, res, { body }) => {
   wsServer.broadcast('board', { type: 'task_created', data: task });
 
   res.writeHead(201, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify({ data: task }));
+  res.end(JSON.stringify({ ok: true, data: task }));
 });
 
 // PUT /api/tasks/:id - Edit task
@@ -85,7 +85,7 @@ router.put('/api/tasks/:id', (req, res, { params, body }) => {
   wsServer.broadcast('board', { type: 'task_updated', data: updated });
 
   res.writeHead(200, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify({ data: updated }));
+  res.end(JSON.stringify({ ok: true, data: updated }));
 });
 
 // DELETE /api/tasks/:id - Soft delete task
