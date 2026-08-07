@@ -102,6 +102,7 @@ NO_BROWSER=1 npx ai-commander
      - **Next Step Group ID** (UUID target langsung, bukan placeholder)
      - DONE Group ID
      - Daftar kanban group + urutan "next step move to" + instruksi tiap tahap
+     - **Task detail** dari user (digabung dalam satu file sistem prompt/agent)
 5. Task otomatis dipindah ke tahap berikutnya (default: `ON PROGRESS`).
 6. Agent bekerja, dan ketika pekerjaan selesai, agent WAJIB memanggil:
    ```bash

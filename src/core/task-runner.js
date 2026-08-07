@@ -19,7 +19,7 @@ const taskRepo = require('../db/repositories/task.repo');
 const kanbanGroupRepo = require('../db/repositories/kanbanGroup.repo');
 const projectGroupRepo = require('../db/repositories/projectGroup.repo');
 const projectAliasMappingRepo = require('../db/repositories/projectAliasMapping.repo');
-const { buildInitialPrompt, buildAgentInstructions } = require('./prompt-builder');
+const { buildInitialPrompt } = require('./prompt-builder');
 const opencodeAgentFile = require('./opencode-agent-file');
 const claudeCodeSystemPromptFile = require('./claude-code-system-prompt-file');
 const { getAdapter } = require('./provider-adapters');
@@ -31,6 +31,13 @@ const tokenUsageParser = require('./token-usage-parser');
 // In-memory map to track running PTY processes
 // Key: taskId, Value: { ptyProcess, task, projectGroup, kanbanGroups }
 const runningTasks = new Map();
+
+// Prompt trigger tetap yang dikirim ke CLI (claude-code & opencode) saat task
+// dijalankan. Sengaja dibuat pendek & fixed — semua konteks (kanban + task
+// detail user) SUDAH ada di file system prompt / agent file, jadi CLI arg ini
+// tidak akan pernah kena limit ARG_MAX walau task.detail user sangat panjang.
+const TASK_TRIGGER_PROMPT =
+  'Mulai kerjakan task ini sesuai TASK DETAIL dan ikuti INSTRUKSI WORKFLOW yang sudah diberikan.';
 
 /**
  * Start a task - spawn PTY process and begin execution
@@ -73,7 +80,7 @@ async function startTask(taskId) {
   // Untuk opencode: generate & tulis custom agent file per-task (pengganti --system)
   let agentName;
   if (task.ai_provider === 'opencode') {
-    const instructions = buildAgentInstructions({ task, projectGroup, kanbanGroups, isCwdHome });
+    const instructions = buildInitialPrompt({ task, projectGroup, kanbanGroups, isCwdHome });
     agentName = opencodeAgentFile.getAgentName(task.id);
     const agentFilePath = opencodeAgentFile.writeTaskAgentFile({ cwd, taskId: task.id, instructions });
     console.log('[TaskRunner] OpenCode agent file written:', agentFilePath);
@@ -86,18 +93,18 @@ async function startTask(taskId) {
   // prompt terpisah (pengganti gabung-jadi-satu-teks-raksasa).
   let systemPromptFilePath;
   if (task.ai_provider === 'claude-code') {
-    const instructions = buildAgentInstructions({ task, projectGroup, kanbanGroups, isCwdHome, provider: 'claude-code' });
+    const instructions = buildInitialPrompt({ task, projectGroup, kanbanGroups, isCwdHome });
     systemPromptFilePath = claudeCodeSystemPromptFile.writeTaskSystemPromptFile({ cwd, taskId: task.id, instructions });
     console.log('[TaskRunner] Claude Code system prompt file written:', systemPromptFilePath);
     console.log('[TaskRunner] CWD:', cwd);
     console.log('[TaskRunner] isCwdHome:', isCwdHome);
   }
 
-  // Prompt yang dikirim sebagai "task/prompt user" = detail task apa adanya.
-  // Konteks kanban lengkap sudah ada di file agent (opencode) / file system
-  // prompt (claude-code).
+  // Prompt trigger tetap yang dikirim ke CLI (claude-code & opencode). Semua
+  // konteks (workflow + kanban + task detail) sudah ada di file system prompt /
+  // agent file — CLI arg ini hanya pemicu pendek, tidak akan pernah kena ARG_MAX.
   const initialPrompt = (task.ai_provider === 'opencode' || task.ai_provider === 'claude-code')
-    ? task.detail
+    ? TASK_TRIGGER_PROMPT
     : buildInitialPrompt({ task, projectGroup, kanbanGroups, isCwdHome });
 
   // Build spawn command
@@ -128,13 +135,6 @@ async function startTask(taskId) {
       projectGroup,
       kanbanGroups,
     });
-
-    // Send initial prompt to PTY
-    // Wait a short moment for the process to initialize
-    setTimeout(() => {
-      const formattedPrompt = adapter.formatInitialPrompt(initialPrompt);
-      ptyProcess.write(formattedPrompt + '\n');
-    }, 500);
 
     // Handle PTY output
     ptyProcess.onData((data) => {

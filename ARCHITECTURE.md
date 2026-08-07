@@ -329,20 +329,24 @@ bersama path unix socket, dibaca oleh `ai-commander-cli`).
      `project_group_uuid`, `task_uuid`, `next_step_group_id` (UUID target
      langsung dari kanban group saat ini), `done_group_id`, daftar kanban
      group beserta `slash_command`, `next_step_group_id`, `instruction`,
-     dan perintah eksplisit untuk menjalankan `ai-commander-cli update ...`
-     dengan UUID target yang sudah terisi (bukan placeholder). Instruksi ini
-     ditulis ke file sementara (`.claude-tmp/task-<id>.md`) oleh
+     perintah eksplisit untuk menjalankan `ai-commander-cli update ...`
+     dengan UUID target yang sudah terisi (bukan placeholder), **serta
+     `task.detail` dari user** (lihat §6.1a). Instruksi ini ditulis ke
+     file sementara (`.claude-tmp/task-<id>.md`) oleh
      `claude-code-system-prompt-file.js` untuk menghindari limit panjang
      argumen CLI (ARG_MAX). File path dikirim ke CLI lewat flag
-     `--append-system-prompt-file`. Task detail dari user dikirim sebagai
-     prompt terpisah (bukan digabung dengan instruksi workflow).
+     `--append-system-prompt-file`. Prompt yang dikirim sebagai CLI arg
+     adalah teks pemicu pendek tetap (`TASK_TRIGGER_PROMPT`), bukan
+     `task.detail` mentah.
    - **OpenCode**: Karena OpenCode tidak mendukung flag `--system`, konteks
-      kanban ditulis ke **custom agent file** (`.opencode/agents/aic-task-<id>.md`)
-     oleh `opencode-agent-file.js`. File ini berisi instruksi workflow yang sama
-     dengan prompt Claude Code, termasuk `next_step_group_id` yang sudah terisi
-     langsung. Task detail dari user dikirim langsung sebagai
-     prompt ke `opencode run --auto --agent <agent_name> "detail"`.
-      File agent dihapus otomatis saat task selesai (masuk DONE).
+      kanban **serta `task.detail` dari user** ditulis ke **custom agent
+      file** (`.opencode/agents/aic-task-<id>.md`) oleh
+      `opencode-agent-file.js`. File ini berisi instruksi workflow yang
+      sama dengan prompt Claude Code, termasuk `next_step_group_id` yang
+      sudah terisi langsung. Prompt yang dikirim ke CLI
+      (`opencode run --auto --agent <agent_name> "prompt"`) adalah teks
+      pemicu pendek tetap (`TASK_TRIGGER_PROMPT`), bukan `task.detail`
+      mentah. File agent dihapus otomatis saat task selesai (masuk DONE).
    - **Read-First Instruction** (kedua provider): Jika cwd adalah home
      directory (`isCwdHome = true`), prompt/agent file akan menyertakan
      instruksi agar AI membaca `AGENTS.md`/`CLAUDE.md` dari setiap path
@@ -736,14 +740,18 @@ Arsitektur provider adapter memungkinkan dukungan untuk multiple AI CLI
 - **`claude-code.adapter.js`**: Spawn `claude` dengan flag
   `--permission-mode bypassPermissions`. Mode interaktif (orchestrator):
   `--system-prompt "..."`. Mode non-interactive (task runner): `--print --verbose "prompt"`.
-  Untuk task runner, instruksi permanen (workflow + kanban) dikirim lewat file
-  terpisah menggunakan `--append-system-prompt-file <path>` (menghindari limit
-  panjang argumen CLI ARG_MAX).
+  Untuk task runner, instruksi permanen (workflow + kanban + task detail)
+  dikirim lewat file terpisah menggunakan
+  `--append-system-prompt-file <path>` (menghindari limit panjang argumen
+  CLI ARG_MAX). Prompt CLI arg hanya berisi teks pemicu pendek tetap
+  (`TASK_TRIGGER_PROMPT`).
 - **`opencode.adapter.js`**: Spawn `opencode` dengan mode berbeda:
   - Interactive (orchestrator): `opencode --agent <name>` (menggunakan
     custom agent file orchestrator, lihat §6.4)
   - Non-interactive (task runner): `opencode run --auto --agent <name> "prompt"`
-    dengan custom agent file per-task (lihat §6.1).
+    dengan custom agent file per-task yang sudah berisi workflow + kanban
+    + task detail (lihat §6.1). Prompt CLI arg hanya berisi teks pemicu
+    pendek tetap (`TASK_TRIGGER_PROMPT`).
 
 **Registry**: `provider-adapters/index.js` menyediakan `getAdapter(name)`
 yang mengembalikan adapter berdasarkan provider name (`'claude-code'` |
@@ -755,7 +763,9 @@ ke `.opencode/agents/` di dalam project. Ada 2 jenis agent file:
 
 - **Task runner**: `.opencode/agents/aic-task-<id>.md` — per-task, dihapus
   saat task selesai (masuk DONE). Berisi instruksi workflow kanban untuk
-  task spesifik.
+  task spesifik **serta `task.detail` dari user** (digabung dalam satu
+  file agar tidak perlu mengirim task.detail sebagai argumen CLI yang
+  bisa melebihi batas ARG_MAX).
 - **Orchestrator**: `.opencode/agents/aic-orchestrator-<projectGroupName>.md` —
   per project group, dihapus saat orchestrator di-stop. Berisi instruksi
   cara membuat task, move task, project alias mapping, dan daftar kanban
@@ -772,6 +782,9 @@ File disimpan di `.claude-tmp/task-<id>.md` di dalam working directory task.
 
 - **Task runner**: `.claude-tmp/task-<id>.md` — per-task, dihapus saat task
   selesai (masuk DONE) DAN saat proses PTY exit sebagai jaring pengaman.
+  File ini berisi instruksi workflow kanban **serta `task.detail` dari user**
+  (digabung dalam satu file agar tidak perlu mengirim task.detail sebagai
+  argumen CLI yang bisa melebihi batas ARG_MAX).
 - **Flag CLI**: `--append-system-prompt-file <path>` (hanya berlaku bareng
   `--print`, lihat dokumentasi Claude Code CLI).
 - **Verbose output**: Flag `--verbose` ditambahkan untuk menampilkan detail
