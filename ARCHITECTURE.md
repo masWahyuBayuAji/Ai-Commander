@@ -430,9 +430,10 @@ otomatis di-start (dalam session CLI terpisah).
 **Cara kerja:**
 
 1. User mengklik **icon polygon** di pojok kanan atas task card (task A).
-2. User mengklik task card tujuan (task B) untuk membuat koneksi.
-3. Server menyimpan `next_run_task_id = <task_b_id>` di tabel `tasks` untuk task A.
-4. Saat task A dipindah ke kolom DONE (baik via UI drag-drop maupun CLI
+2. Board masuk **linking mode**: icon polygon pada task A berubah menjadi icon "X" (cancel/clear), dan task lain menampilkan icon "+" (drop link here).
+3. User mengklik task card tujuan (task B) untuk membuat koneksi. Server menyimpan `next_run_task_id = <task_b_id>` di tabel `tasks` untuk task A.
+4. **Clear next run**: Jika task A sudah memiliki `next_run_task_id`, user bisa mengklik icon "X" pada task A lagi untuk **menghapus** koneksi next run (set `next_run_task_id = NULL`). Jika task A belum memiliki `next_run_task_id`, klik icon "X" hanya membatalkan linking mode.
+5. Saat task A dipindah ke kolom DONE (baik via UI drag-drop maupun CLI
    `ai-commander-cli update`), server mendeteksi:
    - `targetGroup.is_locked_done === 1` (target adalah kolom DONE)
    - `task.next_run_task_id` tidak kosong
@@ -447,11 +448,17 @@ baik oleh HTTP route (`tasks.routes.js`) maupun IPC socket handler
 (`ipc-socket.js`).
 
 **Frontend**: Task card menampilkan:
-- **Icon polygon** di pojok kanan atas (klik untuk memulai/mengakhiri linking)
+- **Icon polygon** di pojok kanan atas (klik untuk memulai linking / mengakhiri linking / menghapus next run)
 - **Label "next run: {task_id}"** di bawah deskripsi jika task memiliki
   `next_run_task_id`
 - **SVG bezier connection lines** antar task card yang ter-link (overlay
   di atas kanban board, di-draw ulang saat resize/scroll)
+
+**Linking mode behavior**:
+- Klik icon polygon pada task → masuk linking mode (icon berubah "X", task lain menampilkan icon "+")
+- Klik icon "+" pada task lain → set `next_run_task_id` ke task tersebut
+- Klik icon "X" pada task yang sudah memiliki `next_run_task_id` → **clear/unlink** `next_run_task_id`
+- Klik icon "X" pada task yang belum memiliki `next_run_task_id` → batal linking mode
 
 
 ```

@@ -41,7 +41,7 @@ Setelah mencoba beberapa tools kanban/orchestrator AI yang ada, ditemukan dua ma
 - 🔁 Agent AI dapat **memindahkan task antar kanban group secara otomatis** lewat perintah CLI internal (`ai-commander-cli update ...`)
 - 🛠️ **CLI `ai-commander-cli`**: command `update` (pindah kanban group) & `create` (buat task baru) bisa dipanggil langsung oleh AI agent
 - 🔄 **Auto-recovery**: server otomatis memulihkan task yang terputus saat server di-restart
-- 🔗 **Next Run (Auto-Trigger)**: link task satu sama lain agar task berikutnya otomatis di-start saat task sebelumnya DONE
+- 🔗 **Next Run (Auto-Trigger)**: link task satu sama lain agar task berikutnya otomatis di-start saat task sebelumnya DONE. Klik icon pada task sumber lagi untuk clear/unlink koneksi.
 - 🔶 **Polygon connection lines**: visualisasi garis SVG bezier penghubung antar task card yang ter-link
 - 🟢 **Running indicator**: task yang sedang berjalan ditandai dengan border hijau dan label "Running"
 - ⚡ **Optimistic UI**: tombol Start menampilkan feedback langsung saat diklik (Starting... → Running)
@@ -111,7 +111,7 @@ NO_BROWSER=1 npx ai-commander
    agent tidak perlu menebak. Tanpa menjalankan perintah ini, task akan tetap
    terjebak di tahap saat ini.
 7. UI kanban ter-update secara realtime tanpa perlu reload, dashboard token usage ikut ter-update.
-8. (Opsional) User bisa menghubungkan task ke task lainnya via **icon polygon** — saat task DONE, task berikutnya otomatis di-start.
+8. (Opsional) User bisa menghubungkan task ke task lainnya via **icon polygon** — saat task DONE, task berikutnya otomatis di-start. Klik icon pada task sumber lagi untuk clear/unlink koneksi.
 8. Klik "View" pada task card untuk membuka **slide-in panel** di sisi kiri layar yang menampilkan live terminal output dari task yang sedang berjalan.
 9. Task terus berjalan otomatis melewati tahap-tahap kanban (`NEED REVIEW` → `COMMIT` → `DONE`) sesuai instruksi masing-masing tahap, kecuali ada tahap yang sengaja ditandai untuk dijalankan manual.
 

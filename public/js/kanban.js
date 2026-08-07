@@ -88,8 +88,8 @@
         }
 
         if (linkingMode && linkingFromTaskId === t.id) {
-          linkBtnTitle = 'Cancel link';
-          linkBtnOnclick = 'KanbanBoard.cancelLink()';
+          linkBtnTitle = t.next_run_task_id ? 'Clear next run' : 'Cancel link';
+          linkBtnOnclick = 'KanbanBoard.startLink(\'' + t.id + '\')';
           linkBtnSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
         }
 
@@ -216,6 +216,19 @@
 
   function startLink(taskId) {
     if (linkingMode && linkingFromTaskId === taskId) {
+      var task = taskData.find(function(t) { return t.id === taskId; });
+      if (task && task.next_run_task_id) {
+        fetch('/api/tasks/' + taskId + '/next-run', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nextRunTaskId: null })
+        }).then(function() {
+          linkingMode = false;
+          linkingFromTaskId = null;
+          loadBoard();
+        });
+        return;
+      }
       cancelLink();
       return;
     }
