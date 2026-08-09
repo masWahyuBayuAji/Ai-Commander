@@ -8,25 +8,59 @@
     if (!container || term) return;
 
     term = new Terminal({
-      cursorBlink: false,
-      fontSize: 12,
+      cursorBlink: true,
+      fontSize: 13,
       fontFamily: "'Cascadia Code', 'Fira Code', 'Consolas', monospace",
       theme: {
         background: '#0d1117',
         foreground: '#c9d1d9',
         cursor: '#58a6ff',
         selectionBackground: '#264f78',
+        black: '#0d1117',
+        red: '#ff7b72',
+        green: '#3fb950',
+        yellow: '#d29922',
+        blue: '#58a6ff',
+        magenta: '#bc8cff',
+        cyan: '#39c5cf',
+        white: '#c9d1d9',
+        brightBlack: '#484f58',
+        brightRed: '#ffa198',
+        brightGreen: '#56d364',
+        brightYellow: '#e3b341',
+        brightBlue: '#79c0ff',
+        brightMagenta: '#d2a8ff',
+        brightCyan: '#56d4dd',
+        brightWhite: '#f0f6fc',
       },
-      disableStdin: true,
+      allowProposedApi: true,
       scrollback: 10000,
     });
 
     fitAddon = new FitAddon.FitAddon();
     term.loadAddon(fitAddon);
+
+    try {
+      var webLinksAddon = new WebLinksAddon.WebLinksAddon();
+      term.loadAddon(webLinksAddon);
+    } catch (e) {}
+
     term.open(container);
 
     requestAnimationFrame(function() {
-      fitAddon.fit();
+      doFit();
+    });
+
+    term.onData(function(data) {
+      if (!currentTaskId) return;
+      fetch('/api/tasks/' + currentTaskId + '/input', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: data })
+      }).catch(function() {
+        // Task may have finished/no longer running -> ignore,
+        // don't let errors bother the user. This is normal, not a bug.
+      });
     });
   }
 
@@ -35,6 +69,25 @@
       term.dispose();
       term = null;
       fitAddon = null;
+    }
+  }
+
+  function sendResize() {
+    if (!term || !currentTaskId) return;
+    var dims = fitAddon.proposeDimensions();
+    if (dims && dims.cols && dims.rows) {
+      fetch('/api/tasks/' + currentTaskId + '/resize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cols: dims.cols, rows: dims.rows })
+      }).catch(function() {});
+    }
+  }
+
+  function doFit() {
+    if (fitAddon && term) {
+      fitAddon.fit();
+      sendResize();
     }
   }
 
@@ -51,10 +104,11 @@
       var tasks = json.data || json || [];
       var task = tasks.find(function(t) { return t.id === taskId; });
 
-      if (task && task.session_status === 'running') {
-        btn.style.display = '';
-      } else {
-        btn.style.display = 'none';
+      var isRunning = task && task.session_status === 'running';
+      btn.style.display = isRunning ? '' : 'none';
+
+      if (term) {
+        term.options.disableStdin = !isRunning;
       }
     } catch (e) {
       btn.style.display = 'none';
@@ -79,15 +133,14 @@
       loadHistory(taskId);
     }, 100);
 
-    if (window.WsClient) {
+      if (window.WsClient) {
       WsClient.connect('task:' + taskId, function(msg) {
         if (msg.data && msg.data.data && msg.data.type === 'log' && term) {
           term.write(msg.data.data);
         }
-        // When task exits, hide Emergency Stop button
+        // When task exits, update status immediately
         if (msg.data && msg.data.type === 'exit') {
-          var btn = document.getElementById('btnEmergencyStopTask');
-          if (btn) btn.style.display = 'none';
+          checkTaskStatus(taskId);
         }
       });
 
@@ -202,20 +255,12 @@
     var resizeTimeout;
     window.addEventListener('resize', function() {
       clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(function() {
-        if (fitAddon && term) {
-          fitAddon.fit();
-        }
-      }, 150);
+      resizeTimeout = setTimeout(doFit, 150);
     });
 
     var observer = new ResizeObserver(function() {
       clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(function() {
-        if (fitAddon && term) {
-          fitAddon.fit();
-        }
-      }, 100);
+      resizeTimeout = setTimeout(doFit, 100);
     });
     var panel = document.getElementById('taskProgressPanel');
     if (panel) observer.observe(panel);

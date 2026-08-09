@@ -5,6 +5,13 @@ const projectAliasMappingRepo = require('../db/repositories/projectAliasMapping.
 const opencodeAgentFile = require('./opencode-agent-file');
 const claudeCodeSystemPromptFile = require('./claude-code-system-prompt-file');
 
+// Lazy import untuk hindari circular dependency
+let taskRunner = null;
+function getTaskRunner() {
+  if (!taskRunner) taskRunner = require('./task-runner');
+  return taskRunner;
+}
+
 function validateAndTransition(taskId, targetKanbanGroupId) {
   const task = taskRepo.getById(taskId);
   if (!task) {
@@ -36,6 +43,17 @@ function validateAndTransition(taskId, targetKanbanGroupId) {
     const projectGroup = task.project_group_id ? projectGroupRepo.getById(task.project_group_id) : null;
     const cwd = projectGroup ? (projectAliasMappingRepo.getDefaultPath(projectGroup.id) || process.cwd()) : process.cwd();
     claudeCodeSystemPromptFile.deleteTaskSystemPromptFile({ cwd, taskId: task.id });
+  }
+
+  // Kill task runner terminal 5 detik setelah pindah ke DONE
+  if (targetGroup.is_locked_done === 1) {
+    setTimeout(() => {
+      try {
+        getTaskRunner().stopTask(task.id);
+      } catch (e) {
+        // Task mungkin sudah exit sendiri, ignore
+      }
+    }, 5000);
   }
 
   return { ok: true, task: updatedTask };

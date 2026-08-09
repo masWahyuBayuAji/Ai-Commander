@@ -42,7 +42,8 @@
   async function loadSettings() {
     try {
       const res = await fetch('/api/settings');
-      settings = await res.json();
+      const json = await res.json();
+      settings = json.data || json || {};
     } catch (e) {
       settings = {};
     }
@@ -87,6 +88,13 @@
             <select id="colorTheme" class="form-control">
               <option value="light-green-white">Light Green-White (Default)</option>
               <option value="dark-navy">Dark Navy</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-top:12px; margin-bottom:0;">
+            <label for="taskRunnerAgentMode">Task Runner AI Agent Mode</label>
+            <select id="taskRunnerAgentMode" class="form-control">
+              <option value="interactive">INTERACTIVE</option>
+              <option value="headless">HEADLESS (NON-INTERACTIVE)</option>
             </select>
           </div>
         </div>
@@ -198,6 +206,23 @@
             settings = data.data;
             document.body.setAttribute('data-theme', theme);
             localStorage.setItem('color_theme', theme);
+          });
+      });
+    }
+
+    var agentModeSelect = document.getElementById('taskRunnerAgentMode');
+    if (agentModeSelect) {
+      agentModeSelect.value = settings.task_runner_agent_mode || 'interactive';
+      agentModeSelect.addEventListener('change', function() {
+        var mode = this.value;
+        settings.task_runner_agent_mode = mode;
+        fetch('/api/settings', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ task_runner_agent_mode: mode })
+        }).then(function(res) { return res.json(); })
+          .then(function(data) {
+            settings = data.data;
           });
       });
     }

@@ -29,13 +29,14 @@ Setelah mencoba beberapa tools kanban/orchestrator AI yang ada, ditemukan dua ma
 - 📃 Toggle tampilan **Kanban / List**
 - 🗂️ **Multi-repository** via **Project Group** (mapping alias project ke path folder)
 - ⚙️ **Kanban Group Settings**: atur alur "next step move to" (termasuk untuk TO-DO) + instruksi default per tahap
-- 🖥️ **Task Progress View**: slide-in panel di sisi kiri layar dengan live terminal view dari session AI yang sedang berjalan
-- ✍️ **Task Progress Input**: form input di bagian bawah panel task progress untuk mengirim perintah/pesan langsung ke task yang sedang berjalan (saat ini masih dalam tahap implementasi — HTML sudah ada, JS/CSS/endpoint belum)
+- 🖥️ **Task Progress View**: slide-in panel di sisi kiri layar dengan live terminal interaktif dari session AI yang sedang berjalan
+- ✍️ **Task Progress Input**: terminal interaktif — user bisa mengetik langsung di terminal untuk mengirim perintah/pesan ke task yang sedang berjalan
 - 🧭 **Orchestrator Terminal**: slide-in panel di sisi kanan layar untuk membuat task/list task secara otomatis
 - 📊 **Dashboard realtime**: total token usage (dalam K) & total task selesai per Project Group (section dashboard hidden by default di `index.html`, data tetap di-load secara background)
 - 🗂️ **Project Alias Mapping card**: menampilkan informasi alias mapping (name, path, working directory) untuk project group yang aktif
 - 🗑️ **Soft-delete task**: task yang dihapus disimpan (bukan dihapus permanen), bisa dikembalikan ke `TO-DO`
 - 🤖 Dukungan provider: **Claude Code** & **OpenCode** (via CLI, bypass permission)
+- 🔄 **Task Runner AI Agent Mode**: pilih antara **INTERACTIVE** (AI bisa tanya balik ke user) atau **HEADLESS** (non-interactive, auto-exit) di halaman Setting
 - 📖 **Auto-read project rules**: jika working directory adalah home directory, AI otomatis membaca `AGENTS.md`/`CLAUDE.md` dari setiap path project sebelum memulai pekerjaan
 - 🔍 **Verbose output untuk Claude Code**: menampilkan detail tool call (Bash/Grep/Read/dll) di output terminal, mendekati pengalaman OpenCode
 - 🔁 Agent AI dapat **memindahkan task antar kanban group secara otomatis** lewat perintah CLI internal (`ai-commander-cli update ...`)
@@ -96,6 +97,9 @@ NO_BROWSER=1 npx ai-commander
    - Task card mendapat border hijau dengan label "Running"
    - Tombol Start berubah menjadi disabled "Running"
    - ai-commander membuka 1 session CLI (Claude Code/OpenCode) dengan bypass permission
+   - Mode **INTERACTIVE** (default): AI bisa menampilkan pertanyaan dan user
+     bisa menjawab langsung di terminal task progress
+   - Mode **HEADLESS**: CLI berjalan otomatis tanpa intervensi user
    - Agent menerima instruksi workflow berisi:
      - UUID Project Group
      - UUID Task (pendek)

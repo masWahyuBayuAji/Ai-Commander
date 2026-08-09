@@ -35,9 +35,8 @@ CLI ↔ Server, dan alur hemat-token yang jadi dasar desain aplikasi ini.
    task selesai/keluar. Tidak ada arsitektur multi-agent/multi-commander yang
    saling polling — ini akar penyebab borosnya quota di tool lain yang sudah
    dicoba sebelumnya.
-4. **Bypass permission**: proses CLI dijalankan dengan flag non-interaktif /
-   auto-approve (mis. `--permission-mode bypassPermissions` untuk Claude
-   Code, atau flag setara di OpenCode) sehingga tidak ada prompt konfirmasi
+4. **Bypass permission**: proses CLI dijalankan dengan flag `--dangerously-skip-permissions`
+   (Claude Code) atau `--auto` (OpenCode) sehingga tidak ada prompt konfirmasi
    yang menggantung menunggu user.
 5. **Instruksi tahap kanban dikirim sekali di awal** (lewat prompt atau
    custom agent file), bukan lewat polling berulang. Agent AI sendiri yang
@@ -167,6 +166,7 @@ CREATE TABLE settings (
 );
 -- contoh row: ('use_grouping_project', 'true' | 'false')
 -- contoh row: ('selected_project_group', '<project_group_id> | "default"')
+-- contoh row: ('task_runner_agent_mode', '"interactive" | "headless"')
 
 CREATE TABLE project_groups (
   id TEXT PRIMARY KEY,            -- uuid
@@ -296,6 +296,8 @@ bersama path unix socket, dibaca oleh `ai-commander-cli`).
 | POST   | `/api/tasks/:id/restore`                         | Restore ke TO-DO (dari Deleted Task view)     |
 | GET    | `/api/tasks/deleted`                             | List task ter-soft-delete                     |
 | PUT    | `/api/tasks/:id/next-run`                     | Set/clear `next_run_task_id` (link task ke task berikutnya) |
+| POST   | `/api/tasks/:id/input`                       | Kirim input ke running task PTY (follow-up instruction)     |
+| POST   | `/api/tasks/:id/resize`                      | Resize PTY terminal task                                    |
 | GET    | `/api/tasks/debug/next-run`                   | Debug: cek kolom `next_run_task_id` & status TO-DO groups |
 | GET    | `/api/tasks/:id/events`                          | Ambil log events task utk Task Progress View  |
 | GET    | `/api/dashboard/summary`                         | Total token usage (K) + total done per group  |
@@ -335,18 +337,20 @@ bersama path unix socket, dibaca oleh `ai-commander-cli`).
      file sementara (`.claude-tmp/task-<id>.md`) oleh
      `claude-code-system-prompt-file.js` untuk menghindari limit panjang
      argumen CLI (ARG_MAX). File path dikirim ke CLI lewat flag
-     `--append-system-prompt-file`. Prompt yang dikirim sebagai CLI arg
-     adalah teks pemicu pendek tetap (`TASK_TRIGGER_PROMPT`), bukan
-     `task.detail` mentah.
+     `--append-system-prompt-file`. Mode **INTERACTIVE**: tanpa `--print`,
+     AI bisa tanya balik ke user. Mode **HEADLESS**: tambah `--print`,
+     output ke stdout dan exit otomatis. Keduanya pakai
+     `--dangerously-skip-permissions --verbose`.
    - **OpenCode**: Karena OpenCode tidak mendukung flag `--system`, konteks
       kanban **serta `task.detail` dari user** ditulis ke **custom agent
       file** (`.opencode/agents/aic-task-<id>.md`) oleh
       `opencode-agent-file.js`. File ini berisi instruksi workflow yang
       sama dengan prompt Claude Code, termasuk `next_step_group_id` yang
-      sudah terisi langsung. Prompt yang dikirim ke CLI
-      (`opencode run --auto --agent <agent_name> "prompt"`) adalah teks
-      pemicu pendek tetap (`TASK_TRIGGER_PROMPT`), bukan `task.detail`
-      mentah. File agent dihapus otomatis saat task selesai (masuk DONE).
+      sudah terisi langsung. Mode **INTERACTIVE**: prompt dikirim lewat
+      flag `--prompt` (`opencode --auto --prompt "prompt" --agent <name>`),
+      sehingga AI bisa tanya balik ke user. Mode **HEADLESS**: prompt
+      dikirim sebagai positional argumen (`opencode run --auto --agent <name> "prompt"`),
+      non-interactive. File agent dihapus otomatis saat task selesai (masuk DONE).
    - **Read-First Instruction** (kedua provider): Jika cwd adalah home
      directory (`isCwdHome = true`), prompt/agent file akan menyertakan
      instruksi agar AI membaca `AGENTS.md`/`CLAUDE.md` dari setiap path
@@ -471,7 +475,7 @@ ai-commander-cli create <project_group_uuid|-> <detail> [ai_provider]
 
 1. User membuka halaman Orchestrator, memilih provider (OpenCode/Claude Code).
 2. Server spawn PTY dalam mode interaktif:
-   - **Claude Code**: `claude --permission-mode bypassPermissions --system-prompt "..."`.
+   - **Claude Code**: `claude --dangerously-skip-permissions --system-prompt "..."`.
      Prompt berisi project alias mapping, syntax create/update task, daftar
      project groups & kanban groups.
    - **OpenCode**: Menulis **custom agent file**
@@ -504,18 +508,23 @@ ai-commander-cli create <project_group_uuid|-> <detail> [ai_provider]
   tidak memerlukan bundler. CSS xterm.js di-load via `<link>` di `index.html`.
 - **Task Progress View**: dibuka sebagai **slide-in panel di sisi kiri layar**
   saat user mengklik tombol "View" pada task card. Panel menggunakan xterm.js
-  terminal dengan theme gelap (GitHub-style), `disableStdin: true` (read-only),
-  dan `scrollback: 10000`. History log di-load dari
-  `GET /api/tasks/:id/events`, lalu live stream masuk lewat WebSocket channel
-  `task:<id>`. Panel bisa di-close tanpa memutus WebSocket channel `board`
-  (hanya disconnect channel task spesifik).
-- **Task Progress Input**: panel task progress dilengkapi form input di bagian
-  bawah (field teks + tombol "Send") yang memungkinkan user mengirim perintah
-  atau pesan langsung ke task yang sedang berjalan. Saat ini form input hanya
-  dirender di DOM (`index.html`) — handler JavaScript, endpoint server
-  (`POST /api/tasks/:id/input`), dan CSS styling belum diimplementasi.
-  Backend function `sendFollowupInstruction()` di `task-runner.js` sudah ada
-  tapi belum ter-expose ke HTTP route manapun.
+  terminal dengan theme gelap (GitHub-style), `cursorBlink: true`,
+  `allowProposedApi: true`, dan `scrollback: 10000`. Terminal bersifat
+  **interaktif** — user bisa mengetik langsung di terminal untuk mengirim
+  input ke task yang sedang berjalan (via `POST /api/tasks/:id/input`).
+  History log di-load dari `GET /api/tasks/:id/events`, lalu live stream
+  masuk lewat WebSocket channel `task:<id>`. Panel juga mendukung
+  **resize otomatis** via `@xterm/addon-fit` dan **klik link** via
+  `@xterm/addon-web-links`. Panel bisa di-close tanpa memutus WebSocket
+  channel `board` (hanya disconnect channel task spesifik).
+- **Task Progress Input**: user bisa mengetik langsung di terminal xterm.js
+  untuk mengirim input ke task yang sedang berjalan. Setiap keystroke
+  dikirim via `POST /api/tasks/:id/input` → `sendFollowupInstruction()`
+  di `task-runner.js` yang menulis ke PTY. Mode INTERACTIVE: input tanpa
+  `\n` (biarkan user tekan Enter sendiri). Mode HEADLESS: input dengan
+  `\n` (auto-submit).
+- **Emergency Stop**: tombol di panel task progress untuk menghentikan
+  proses PTY yang sedang berjalan (`POST /api/tasks/:id/stop`).
 - **Orchestrator** memakai mekanisme pty yang sama, tapi tidak terikat ke 1
   task — ini adalah sesi bebas untuk membuat/menyusun banyak task/list task
   otomatis. Orchestrator ditampilkan sebagai **slide-in panel** di sisi kanan
@@ -685,6 +694,18 @@ Karena seluruh operasi CLI dijalankan tanpa konfirmasi manual, ai-commander
   socket lokal** (bukan TCP terbuka), agar perintah `update`/`create` tidak
   bisa dipicu dari luar mesin.
 
+**Flag bypass per provider:**
+- **Claude Code**: `--dangerously-skip-permissions` (auto-approve semua operasi)
+- **OpenCode**: `--auto` (auto-approve semua operasi)
+
+**Task Runner AI Agent Mode** (setting `task_runner_agent_mode`):
+- **INTERACTIVE** (default): CLI berjalan tanpa `--print` (Claude) atau
+  tanpa `run` (OpenCode). AI bisa menampilkan pertanyaan dan user bisa
+  menjawab langsung di terminal.
+- **HEADLESS**: CLI berjalan dengan `--print` (Claude) atau `run --auto`
+  (OpenCode). Output ke stdout, exit otomatis setelah selesai. Cocok untuk
+  otomasi penuh tanpa intervensi user.
+
 ---
 
 ## 13. Recovery Orphaned Tasks
@@ -728,7 +749,7 @@ Arsitektur provider adapter memungkinkan dukungan untuk multiple AI CLI
 **Interface** (setiap adapter harus mengimplementasi):
 ```javascript
 {
-  buildSpawnCommand({ cwd, initialPrompt, agentName, systemPromptFilePath, interactive })
+  buildSpawnCommand({ cwd, initialPrompt, agentName, systemPromptFilePath, interactive, agentMode })
     → { command: string, args: string[] }
   
   formatInitialPrompt(prompt)
@@ -738,20 +759,19 @@ Arsitektur provider adapter memungkinkan dukungan untuk multiple AI CLI
 
 **Adapter yang tersedia**:
 - **`claude-code.adapter.js`**: Spawn `claude` dengan flag
-  `--permission-mode bypassPermissions`. Mode interaktif (orchestrator):
-  `--system-prompt "..."`. Mode non-interactive (task runner): `--print --verbose "prompt"`.
-  Untuk task runner, instruksi permanen (workflow + kanban + task detail)
-  dikirim lewat file terpisah menggunakan
-  `--append-system-prompt-file <path>` (menghindari limit panjang argumen
-  CLI ARG_MAX). Prompt CLI arg hanya berisi teks pemicu pendek tetap
-  (`TASK_TRIGGER_PROMPT`).
+  `--dangerously-skip-permissions`. Mode interaktif (orchestrator):
+  `--system-prompt "..."`. Mode task runner:
+  - INTERACTIVE: `--verbose --append-system-prompt-file <path> "prompt"` (tanpa `--print`)
+  - HEADLESS: `--print --verbose --append-system-prompt-file <path> "prompt"`
+  Instruksi permanen (workflow + kanban + task detail) dikirim lewat file
+  terpisah menggunakan `--append-system-prompt-file <path>` (menghindari
+  limit panjang argumen CLI ARG_MAX).
 - **`opencode.adapter.js`**: Spawn `opencode` dengan mode berbeda:
-  - Interactive (orchestrator): `opencode --agent <name>` (menggunakan
-    custom agent file orchestrator, lihat §6.4)
-  - Non-interactive (task runner): `opencode run --auto --agent <name> "prompt"`
-    dengan custom agent file per-task yang sudah berisi workflow + kanban
-    + task detail (lihat §6.1). Prompt CLI arg hanya berisi teks pemicu
-    pendek tetap (`TASK_TRIGGER_PROMPT`).
+  - Interactive (orchestrator): `opencode --agent <name>`
+  - INTERACTIVE (task runner): `opencode --auto --prompt "prompt" --agent <name>`
+  - HEADLESS (task runner): `opencode run --auto --agent <name> "prompt"`
+  Custom agent file per-task berisi workflow + kanban + task detail
+  (lihat §6.1).
 
 **Registry**: `provider-adapters/index.js` menyediakan `getAdapter(name)`
 yang mengembalikan adapter berdasarkan provider name (`'claude-code'` |
@@ -785,8 +805,9 @@ File disimpan di `.claude-tmp/task-<id>.md` di dalam working directory task.
   File ini berisi instruksi workflow kanban **serta `task.detail` dari user**
   (digabung dalam satu file agar tidak perlu mengirim task.detail sebagai
   argumen CLI yang bisa melebihi batas ARG_MAX).
-- **Flag CLI**: `--append-system-prompt-file <path>` (hanya berlaku bareng
-  `--print`, lihat dokumentasi Claude Code CLI).
+- **Flag CLI**: `--append-system-prompt-file <path>` untuk mengirim instruksi
+  panjang via file (menghindari ARG_MAX). Dipakai di kedua mode
+  (INTERACTIVE dan HEADLESS).
 - **Verbose output**: Flag `--verbose` ditambahkan untuk menampilkan detail
   tool call (Bash/Grep/Read/dll) di output terminal, mendekati pengalaman
   OpenCode.

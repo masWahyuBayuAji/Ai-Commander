@@ -195,6 +195,36 @@ router.post('/api/tasks/:id/stop', (req, res, { params }) => {
   res.end(JSON.stringify({ ok: true, data: result.task }));
 });
 
+// POST /api/tasks/:id/input - Send additional input to running task PTY
+router.post('/api/tasks/:id/input', (req, res, { params, body }) => {
+  if (!body || !body.text) {
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'text is required' }));
+    return;
+  }
+
+  const taskRunner = require('../../core/task-runner');
+  const result = taskRunner.sendFollowupInstruction(params.id, body.text);
+
+  res.writeHead(result.ok ? 200 : 400, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(result));
+});
+
+// POST /api/tasks/:id/resize - Resize running task PTY
+router.post('/api/tasks/:id/resize', (req, res, { params, body }) => {
+  if (!body || !body.cols || !body.rows) {
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'cols and rows are required' }));
+    return;
+  }
+
+  const taskRunner = require('../../core/task-runner');
+  const result = taskRunner.resizeTask(params.id, body.cols, body.rows);
+
+  res.writeHead(result.ok ? 200 : 400, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(result));
+});
+
 // POST /api/tasks/:id/start - Start task execution
 router.post('/api/tasks/:id/start', async (req, res, { params }) => {
   const task = taskRepo.getById(params.id);

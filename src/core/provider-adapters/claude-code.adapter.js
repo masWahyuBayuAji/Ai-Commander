@@ -2,45 +2,47 @@
  * Claude Code provider adapter
  *
  * Builds spawn command for running Claude Code CLI.
- * Supports both interactive (orchestrator) and non-interactive (task runner) modes.
+ * Supports both interactive (orchestrator) and task runner modes.
  *
  * Verified CLI flags (claude v2.1.216):
- * - Interactive: `claude --permission-mode bypassPermissions`
- * - Interactive with system prompt: `claude --permission-mode bypassPermissions --system-prompt "..."`
- * - Non-interactive: `claude --permission-mode bypassPermissions --print --verbose`
- * - Non-interactive with system prompt file: tambahkan `--append-system-prompt-file <path>`
- *   (flag ini resmi hanya berlaku bareng --print, lihat dokumentasi Claude Code CLI)
+ * - Interactive: `claude --dangerously-skip-permissions`
+ * - Interactive with system prompt: `claude --dangerously-skip-permissions --system-prompt "..."`
+ * - Interactive with system prompt file: `claude --dangerously-skip-permissions --append-system-prompt-file <path>`
+ * - Headless: tambah `--print` agar output ke stdout dan exit otomatis
  */
 
 /**
  * Build spawn command for Claude Code CLI
  * @param {Object} options
  * @param {string} options.cwd - Working directory for the CLI
- * @param {string} options.initialPrompt - Initial prompt to send to the CLI (task.detail untuk task runner)
+ * @param {string} options.initialPrompt - Initial prompt to send to the CLI
  * @param {string} options.systemPrompt - System prompt untuk mode interaktif (orchestrator)
- * @param {string} [options.systemPromptFilePath] - Path ke file system prompt untuk mode non-interaktif (task runner)
+ * @param {string} [options.systemPromptFilePath] - Path ke file system prompt (task runner)
  * @param {boolean} options.interactive - If true, spawn interactive mode (for orchestrator)
+ * @param {string} [options.agentMode] - 'interactive' atau 'headless' (task runner only)
  * @returns {{ command: string, args: string[] }} Command and arguments for node-pty
  */
-function buildSpawnCommand({ cwd, initialPrompt, systemPrompt, systemPromptFilePath, interactive }) {
+function buildSpawnCommand({ cwd, initialPrompt, systemPrompt, systemPromptFilePath, interactive, agentMode }) {
   if (interactive) {
-    const args = ['--permission-mode', 'bypassPermissions'];
+    const args = ['--dangerously-skip-permissions'];
     if (systemPrompt) {
       args.push('--system-prompt', systemPrompt);
     }
     return { command: 'claude', args };
   }
 
-  // Task runner mode: non-interactive with print flag
-  const args = [
-    '--permission-mode', 'bypassPermissions',
-    '--print',
-    '--verbose', // [2.c - Opsi A] tampilkan detail tool call (Bash/Grep/Read/dll) di output
-  ];
+  // Task runner mode
+  const args = ['--dangerously-skip-permissions'];
+
+  // HEADLESS: tambah --print agar output ke stdout dan exit otomatis
+  // INTERACTIVE: tanpa --print, AI bisa tanya balik ke user
+  if (agentMode === 'headless') {
+    args.push('--print');
+  }
+
+  args.push('--verbose');
+
   if (systemPromptFilePath) {
-    // [2.b] Instruksi permanen (workflow + kanban) dikirim lewat file,
-    // BUKAN digabung ke initialPrompt. Ini menghindari limit panjang
-    // argumen CLI (ARG_MAX) kalau instruksinya panjang.
     args.push('--append-system-prompt-file', systemPromptFilePath);
   }
   if (initialPrompt) {

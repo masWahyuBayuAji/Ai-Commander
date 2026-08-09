@@ -107,8 +107,12 @@ async function startTask(taskId) {
     ? TASK_TRIGGER_PROMPT
     : buildInitialPrompt({ task, projectGroup, kanbanGroups, isCwdHome });
 
+  // Baca setting task runner mode (interactive / headless)
+  const settingsRepo = require('../db/repositories/settings.repo');
+  const agentMode = settingsRepo.getSetting('task_runner_agent_mode') || 'interactive';
+
   // Build spawn command
-  const { command, args } = adapter.buildSpawnCommand({ cwd, initialPrompt, agentName, systemPromptFilePath, interactive: false });
+  const { command, args } = adapter.buildSpawnCommand({ cwd, initialPrompt, agentName, systemPromptFilePath, interactive: false, agentMode });
 
   try {
     // Spawn PTY process
@@ -234,8 +238,12 @@ function sendFollowupInstruction(taskId, text) {
   }
 
   try {
-    // Send the instruction to the PTY process
-    runningTask.ptyProcess.write(text + '\n');
+    // HEADLESS: tambah \n agar input langsung diproses (seperti CLI arg)
+    // INTERACTIVE: tanpa \n, biarkan user tekan Enter sendiri (seperti orchestrator)
+    const settingsRepo = require('../db/repositories/settings.repo');
+    const agentMode = settingsRepo.getSetting('task_runner_agent_mode') || 'interactive';
+    const suffix = agentMode === 'headless' ? '\n' : '';
+    runningTask.ptyProcess.write(text + suffix);
 
     // Save the instruction as a task event
     const eventId = uuid();
@@ -305,6 +313,27 @@ function stopTask(taskId) {
 }
 
 /**
+ * Resize PTY of a running task
+ * @param {string} taskId - The task ID
+ * @param {number} cols - Number of columns
+ * @param {number} rows - Number of rows
+ * @returns {Object} Result with success status
+ */
+function resizeTask(taskId, cols, rows) {
+  const runningTask = runningTasks.get(taskId);
+  if (!runningTask) {
+    return { ok: false, error: 'Task is not running' };
+  }
+
+  try {
+    runningTask.ptyProcess.resize(cols, rows);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
+}
+
+/**
  * Get status of a running task
  * @param {string} taskId - The task ID
  * @returns {Object|null} Task status info or null if not running
@@ -342,6 +371,7 @@ module.exports = {
   startTask,
   stopTask,
   sendFollowupInstruction,
+  resizeTask,
   getTaskStatus,
   getAllRunningTasks,
 };
