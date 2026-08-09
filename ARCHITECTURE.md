@@ -170,7 +170,7 @@ CREATE TABLE settings (
 
 CREATE TABLE project_groups (
   id TEXT PRIMARY KEY,            -- uuid
-  name TEXT NOT NULL,             -- alias, contoh: "RMS", "Backend RMS"
+  name TEXT NOT NULL,             -- alias, contoh: "PROJECT A", "Backend PROJECT A"
   use_alias_mapping INTEGER NOT NULL DEFAULT 0,  -- 1 = pakai alias mapping (multi-path)
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,

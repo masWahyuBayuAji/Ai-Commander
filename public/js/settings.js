@@ -117,7 +117,7 @@
               <div style="display:flex; gap:8px; align-items:flex-end; margin-bottom:12px;">
                 <div class="form-group" style="flex:1; margin-bottom:0;">
                   <label>Name</label>
-                  <input type="text" id="pgName" placeholder="e.g. RMS">
+                  <input type="text" id="pgName" placeholder="e.g. PROJECT A">
                 </div>
                 <div class="form-group" style="margin-bottom:0;">
                   <label>&nbsp;</label>
