@@ -1,6 +1,6 @@
 {
   "name": "ai-commander",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "بِسْمِ اللهِ الرَّحْمنِ الرَّحِيمِ آللَّهُمَّ صَلِّ  وَ سَلِّم عَلَى سَيِّدِنَا مُحَمَّدٍ وَ عَلَى آلِ سَيِّدِنَا مُحَمَّد | Kanban-based task orchestrator untuk AI coding agent (Claude Code & OpenCode), dengan dukungan multi-repository, mode bypass-permission, dan efisiensi penggunaan token.",
   "bin": {
     "ai-commander": "bin/server.js",
